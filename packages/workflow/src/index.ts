@@ -1,0 +1,265 @@
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import type { GovernorConfig } from "@agent-governor/config";
+import { nowIso, type RuntimeAdapter, type RuntimeType, type TaskRecord, type TaskStatus } from "@agent-governor/core";
+import { ApprovalEngine, audit, type GovernorDb, RepoRegistry, TaskStore } from "@agent-governor/db";
+import { GitWorktreeManager, initAiDirectory } from "@agent-governor/git";
+import { PlaceholderAdapter, RuntimeRouter, ShellAdapter } from "@agent-governor/runtime";
+
+type StageId = "requirements" | "design" | "implementation" | "review" | "pr";
+
+interface WorkflowStage {
+  id: StageId;
+  role: string;
+  capability?: string;
+  approvalRequired?: boolean;
+  expectedOutput?: "markdown" | "diff" | "review" | "json";
+  artifact?: string;
+}
+
+const REQUIREMENTS_TEMPLATE = `# Requirements: <Feature Name>
+
+## Summary
+## Problem
+## Goals
+## Non-goals
+## User Stories
+## Functional Requirements
+## Non-functional Requirements
+## Acceptance Criteria
+## Edge Cases
+## Open Questions
+## Approval
+- Status:
+- Approved By:
+- Approved At:
+`;
+
+const DESIGN_TEMPLATE = `# Design: <Feature Name>
+
+## Context
+## Proposed Approach
+## System Flow
+## Data Model Changes
+## API Changes
+## UI Changes
+## Files Likely to Change
+## Test Plan
+## Risks
+## Rollback Plan
+## Approval
+- Status:
+- Approved By:
+- Approved At:
+`;
+
+const IMPLEMENTATION_TEMPLATE = `# Implementation Run
+
+## Scope
+Implement only the approved task.
+
+## Required Output
+Summarize changed files, tests run, and any follow-up risks.
+`;
+
+function taskLabel(taskId: number): string {
+  return `TASK-${taskId}`;
+}
+
+function taskDir(worktreePath: string, taskId: number): string {
+  return join(worktreePath, ".ai", "tasks", taskLabel(taskId));
+}
+
+function ensureTaskArtifacts(worktreePath: string, task: TaskRecord): void {
+  initAiDirectory(worktreePath);
+  const dir = taskDir(worktreePath, task.id);
+  mkdirSync(join(dir, "agent-runs"), { recursive: true });
+  mkdirSync(join(dir, "logs"), { recursive: true });
+  const files: Record<string, string> = {
+    "requirements.md": REQUIREMENTS_TEMPLATE.replace("<Feature Name>", task.title),
+    "design.md": DESIGN_TEMPLATE.replace("<Feature Name>", task.title),
+    "implementation-plan.md": `# Implementation Plan: ${task.title}\n\n## Steps\n`,
+    "review.md": `# Review: ${task.title}\n\n## Findings\n`,
+    "decision-log.md": `# Decision Log: ${task.title}\n\n`
+  };
+  for (const [file, content] of Object.entries(files)) {
+    const path = join(dir, file);
+    if (!existsSync(path)) {
+      writeFileSync(path, content);
+    }
+  }
+}
+
+function stagesFor(config: GovernorConfig, workflowName: string): WorkflowStage[] {
+  const workflows = config.workflows.workflows as Record<string, { stages?: WorkflowStage[] }>;
+  return workflows[workflowName]?.stages ?? workflows.default?.stages ?? [];
+}
+
+function buildAdapters(config: GovernorConfig): RuntimeAdapter[] {
+  return config.agents.agents
+    .filter((agent) => agent.enabled)
+    .map((agent) => {
+      if (agent.command && (agent.type === "shell" || agent.type === "opencode" || agent.type === "api")) {
+        return new ShellAdapter({
+          id: agent.id,
+          label: agent.label,
+          type: agent.type as RuntimeType,
+          command: agent.command,
+          args: agent.args,
+          capabilities: agent.capabilities,
+          logsRoot: config.app.paths.logs
+        });
+      }
+      return new PlaceholderAdapter(agent.id, agent.label, agent.type as RuntimeType, agent.capabilities);
+    });
+}
+
+function promptFor(stage: StageId, task: TaskRecord, artifactTemplate: string): string {
+  return [
+    `You are working inside Agent Governor on ${taskLabel(task.id)}.`,
+    `Task title: ${task.title}`,
+    `Task description:\n${task.description}`,
+    "",
+    `Stage: ${stage}`,
+    "Write only the requested artifact content. Keep it concrete and implementation-oriented.",
+    "",
+    artifactTemplate
+  ].join("\n");
+}
+
+function generatingStatus(stage: StageId): TaskStatus {
+  if (stage === "requirements") {
+    return "REQUIREMENTS_GENERATING";
+  }
+  if (stage === "design") {
+    return "DESIGN_GENERATING";
+  }
+  if (stage === "implementation") {
+    return "IMPLEMENTING";
+  }
+  if (stage === "review") {
+    return "REVIEWING";
+  }
+  return "PR_READY";
+}
+
+export class WorkflowEngine {
+  private readonly tasks: TaskStore;
+  private readonly repos: RepoRegistry;
+  private readonly approvals: ApprovalEngine;
+  private readonly git = new GitWorktreeManager();
+
+  constructor(private readonly input: { db: GovernorDb; config: GovernorConfig }) {
+    this.tasks = new TaskStore(input.db);
+    this.repos = new RepoRegistry(input.db);
+    this.approvals = new ApprovalEngine(input.db, input.config.app.telegram.ownerTelegramIds);
+  }
+
+  async advance(taskId: number, actorId = "cli"): Promise<TaskRecord> {
+    const task = this.tasks.getTask(taskId);
+    const repo = this.repos.getRepo(task.repo_id);
+    const workflowStages = stagesFor(this.input.config, task.workflow);
+
+    const worktreePath = task.worktree_path ?? join(dirname(repo.local_path), "worktrees", taskLabel(task.id));
+    let branchName = task.branch_name;
+    if (!branchName) {
+      if (!existsSync(repo.local_path)) {
+        throw new Error(`Repo local path does not exist: ${repo.local_path}`);
+      }
+      branchName = await this.git.createWorktree({
+        repoPath: repo.local_path,
+        worktreePath,
+        taskId: taskLabel(task.id),
+        title: task.title
+      });
+      this.tasks.setExecutionContext(task.id, { branchName, worktreePath });
+    }
+
+    ensureTaskArtifacts(worktreePath, task);
+
+    if (task.status === "NEW" || task.status === "CONTEXT_READY") {
+      await this.runArtifactStage({ task, stage: "requirements", status: "WAITING_REQUIREMENTS_APPROVAL", worktreePath, workflowStages });
+      return this.tasks.getTask(task.id);
+    }
+
+    if (task.status === "WAITING_REQUIREMENTS_APPROVAL") {
+      if (!this.approvals.hasApproval(task.id, "requirements")) {
+        throw new Error(`TASK-${task.id} is waiting for requirements approval`);
+      }
+      await this.runArtifactStage({ task, stage: "design", status: "WAITING_DESIGN_APPROVAL", worktreePath, workflowStages });
+      return this.tasks.getTask(task.id);
+    }
+
+    if (task.status === "WAITING_DESIGN_APPROVAL") {
+      if (!this.approvals.hasApproval(task.id, "design")) {
+        throw new Error(`TASK-${task.id} is waiting for design approval`);
+      }
+      await this.runArtifactStage({ task, stage: "implementation", status: "PR_READY", worktreePath, workflowStages });
+      audit(this.input.db, { actorType: "system", actorId, action: "task.ready_for_pr", entityType: "task", entityId: String(task.id) });
+      return this.tasks.getTask(task.id);
+    }
+
+    return task;
+  }
+
+  private async runArtifactStage(input: {
+    task: TaskRecord;
+    stage: StageId;
+    status: TaskStatus;
+    worktreePath: string;
+    workflowStages: WorkflowStage[];
+  }): Promise<void> {
+    const stageConfig = input.workflowStages.find((stage) => stage.id === input.stage);
+    if (!stageConfig) {
+      throw new Error(`Workflow stage is not configured: ${input.stage}`);
+    }
+    const roles = this.input.config.agents.roles[stageConfig.role] ?? { preferred: ["shell"], fallback: [] };
+    const router = new RuntimeRouter(buildAdapters(this.input.config));
+    const outputPath = stageConfig.artifact
+      ? join(taskDir(input.worktreePath, input.task.id), stageConfig.artifact)
+      : join(taskDir(input.worktreePath, input.task.id), `${input.stage}.md`);
+    const startedAt = nowIso();
+    this.tasks.updateStatus(input.task.id, generatingStatus(input.stage), input.stage);
+    const result = await router.runWithFallback({
+      preferred: roles.preferred,
+      fallback: roles.fallback,
+      capability: stageConfig.capability ?? input.stage,
+      runInput: {
+        taskId: taskLabel(input.task.id),
+        repoId: String(input.task.repo_id),
+        repoPath: input.worktreePath,
+        worktreePath: input.worktreePath,
+        stage: input.stage,
+        role: stageConfig.role,
+        prompt: promptFor(
+          input.stage,
+          input.task,
+          input.stage === "design"
+            ? DESIGN_TEMPLATE
+            : input.stage === "implementation"
+              ? IMPLEMENTATION_TEMPLATE
+              : REQUIREMENTS_TEMPLATE
+        ),
+        contextFiles: [],
+        expectedOutput: stageConfig.expectedOutput ?? "markdown",
+        outputPath
+      }
+    });
+    this.tasks.recordAgentRun({
+      taskId: input.task.id,
+      stage: input.stage,
+      role: stageConfig.role,
+      runtimeId: result.runId,
+      status: result.status,
+      logsPath: result.logsPath,
+      startedAt,
+      finishedAt: nowIso(),
+      error: result.error
+    });
+    if (result.status !== "success") {
+      this.tasks.updateStatus(input.task.id, "FAILED", input.stage);
+      throw new Error(result.error ?? `${input.stage} failed`);
+    }
+    this.tasks.updateStatus(input.task.id, input.status, input.stage);
+  }
+}

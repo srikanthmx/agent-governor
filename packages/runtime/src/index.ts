@@ -1,4 +1,4 @@
-import { createWriteStream, mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
@@ -70,16 +70,26 @@ export class ShellAdapter implements RuntimeAdapter {
 
     child.stdin.write(input.prompt);
     child.stdin.end();
-    child.stdout.pipe(createWriteStream(stdoutPath));
-    child.stderr.pipe(createWriteStream(stderrPath));
+    const stdoutChunks: Buffer[] = [];
+    const stderrChunks: Buffer[] = [];
+    child.stdout.on("data", (chunk: Buffer) => stdoutChunks.push(chunk));
+    child.stderr.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
 
     const exitCode = await new Promise<number | null>((resolvePromise) => {
       child.on("close", resolvePromise);
     });
 
+    const stdout = Buffer.concat(stdoutChunks).toString("utf8");
+    const stderr = Buffer.concat(stderrChunks).toString("utf8");
+    writeFileSync(stdoutPath, stdout);
+    writeFileSync(stderrPath, stderr);
+
     const artifacts = input.outputPath ? [input.outputPath] : [];
     if (input.outputPath) {
       mkdirSync(dirname(input.outputPath), { recursive: true });
+      if (exitCode === 0) {
+        writeFileSync(input.outputPath, stdout);
+      }
     }
 
     return {

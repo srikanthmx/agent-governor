@@ -10,6 +10,7 @@ agents:
     capabilities:
       - requirements
       - design
+      - implementation
       - review
     preferredRoles:
       - requirements_writer

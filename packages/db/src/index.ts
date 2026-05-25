@@ -115,6 +115,14 @@ export class RepoRegistry {
     return this.db.prepare("SELECT * FROM repos WHERE name = ?").get(name) as RepoRecord | undefined;
   }
 
+  getRepo(id: number): RepoRecord {
+    const repo = this.db.prepare("SELECT * FROM repos WHERE id = ?").get(id) as RepoRecord | undefined;
+    if (!repo) {
+      throw new Error(`Repo not found: ${id}`);
+    }
+    return repo;
+  }
+
   addRepo(input: {
     name: string;
     githubOwner: string;
@@ -171,6 +179,48 @@ export class TaskStore {
       .prepare("UPDATE tasks SET status = ?, current_stage = COALESCE(?, current_stage), updated_at = ? WHERE id = ?")
       .run(status, currentStage ?? null, nowIso(), id);
   }
+
+  setExecutionContext(id: number, input: { branchName?: string; worktreePath?: string; prUrl?: string }): void {
+    this.db
+      .prepare(
+        `UPDATE tasks
+         SET branch_name = COALESCE(?, branch_name),
+             worktree_path = COALESCE(?, worktree_path),
+             pr_url = COALESCE(?, pr_url),
+             updated_at = ?
+         WHERE id = ?`
+      )
+      .run(input.branchName ?? null, input.worktreePath ?? null, input.prUrl ?? null, nowIso(), id);
+  }
+
+  recordAgentRun(input: {
+    taskId: number;
+    stage: string;
+    role: string;
+    runtimeId: string;
+    status: string;
+    logsPath: string;
+    startedAt: string;
+    finishedAt?: string;
+    error?: string;
+  }): void {
+    this.db
+      .prepare(
+        `INSERT INTO agent_runs (task_id, stage, role, runtime_id, status, logs_path, started_at, finished_at, error)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        input.taskId,
+        input.stage,
+        input.role,
+        input.runtimeId,
+        input.status,
+        input.logsPath,
+        input.startedAt,
+        input.finishedAt ?? null,
+        input.error ?? null
+      );
+  }
 }
 
 export class ApprovalEngine {
@@ -207,6 +257,27 @@ export class ApprovalEngine {
          VALUES (?, ?, 'approved', ?, ?, ?)`
       )
       .run(taskId, stage, ownerId, comment ?? null, nowIso());
+  }
+
+  reject(taskId: number, stage: string, ownerId: string, comment?: string): void {
+    const task = this.db.prepare("SELECT repo_id FROM tasks WHERE id = ?").get(taskId) as { repo_id: number } | undefined;
+    if (!task) {
+      throw new Error(`Task not found: ${taskId}`);
+    }
+    this.requireOwner(ownerId, task.repo_id);
+    this.db
+      .prepare(
+        `INSERT INTO approvals (task_id, stage, status, approved_by, comment, created_at)
+         VALUES (?, ?, 'rejected', ?, ?, ?)`
+      )
+      .run(taskId, stage, ownerId, comment ?? null, nowIso());
+  }
+
+  hasApproval(taskId: number, stage: string): boolean {
+    const row = this.db
+      .prepare("SELECT id FROM approvals WHERE task_id = ? AND stage = ? AND status = 'approved' ORDER BY created_at DESC LIMIT 1")
+      .get(taskId, stage);
+    return Boolean(row);
   }
 }
 

@@ -21,7 +21,9 @@
       "esnext"
     ],
     "allowJs": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler"
   },
   "exclude": [
     "node_modules"

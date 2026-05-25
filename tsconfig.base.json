@@ -21,7 +21,8 @@
       "@agent-governor/github": ["packages/github/src/index.ts"],
       "@agent-governor/runtime": ["packages/runtime/src/index.ts"],
       "@agent-governor/telegram": ["packages/telegram/src/index.ts"],
-      "@agent-governor/ui": ["packages/ui/src/index.ts"]
+      "@agent-governor/ui": ["packages/ui/src/index.ts"],
+      "@agent-governor/workflow": ["packages/workflow/src/index.ts"]
     }
   }
 }

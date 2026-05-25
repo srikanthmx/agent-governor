@@ -50,6 +50,9 @@ importers:
       '@agent-governor/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
+      '@agent-governor/workflow':
+        specifier: workspace:*
+        version: link:../../packages/workflow
       commander:
         specifier: ^12.1.0
         version: 12.1.0
@@ -59,6 +62,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@agent-governor/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@agent-governor/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -168,6 +174,24 @@ importers:
       react:
         specifier: ^18.3.1
         version: 18.3.1
+
+  packages/workflow:
+    dependencies:
+      '@agent-governor/config':
+        specifier: workspace:*
+        version: link:../config
+      '@agent-governor/core':
+        specifier: workspace:*
+        version: link:../core
+      '@agent-governor/db':
+        specifier: workspace:*
+        version: link:../db
+      '@agent-governor/git':
+        specifier: workspace:*
+        version: link:../git
+      '@agent-governor/runtime':
+        specifier: workspace:*
+        version: link:../runtime
 
 packages:
 

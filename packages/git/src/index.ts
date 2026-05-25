@@ -1,5 +1,5 @@
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { execa } from "execa";
 import { taskBranchName } from "@agent-governor/core";
 
@@ -17,6 +17,9 @@ export class GitWorktreeManager {
   async createWorktree(input: { repoPath: string; worktreePath: string; taskId: string; title: string }): Promise<string> {
     const branch = taskBranchName(input.taskId, input.title);
     mkdirSync(resolve(input.worktreePath, ".."), { recursive: true });
+    if (existsSync(input.worktreePath)) {
+      return branch;
+    }
     await execa("git", ["worktree", "add", "-b", branch, input.worktreePath], {
       cwd: input.repoPath,
       stdio: "inherit"
@@ -44,5 +47,25 @@ export class GitWorktreeManager {
 
   async assertGitWorktree(cwd: string): Promise<void> {
     await execa("git", ["rev-parse", "--is-inside-work-tree"], { cwd });
+  }
+}
+
+export function initAiDirectory(repoPath: string): void {
+  const aiPath = join(repoPath, ".ai");
+  mkdirSync(join(aiPath, "tasks"), { recursive: true });
+  const files: Record<string, string> = {
+    "project.md": "# Project\n\nDescribe this repository for governed agent work.\n",
+    "agent-rules.md": "# Agent Rules\n\n- Do not push directly to main.\n- Keep changes scoped to the approved task.\n",
+    "architecture.md": "# Architecture\n\nDocument the system architecture here.\n",
+    "coding-standards.md": "# Coding Standards\n\nDocument local conventions here.\n",
+    "workflows.yml": "workflows:\n  default: {}\n",
+    "skills.md": "# Skills\n\nDocument project-specific skills here.\n",
+    "approval.yml": "approvals:\n  requirements: owner\n  design: owner\n  pr: owner\n  merge: owner\n"
+  };
+  for (const [name, content] of Object.entries(files)) {
+    const filePath = join(aiPath, name);
+    if (!existsSync(filePath)) {
+      writeFileSync(filePath, content);
+    }
   }
 }

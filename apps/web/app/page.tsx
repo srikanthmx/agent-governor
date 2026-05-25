@@ -1,14 +1,8 @@
-const tasks = [
-  { id: "TASK-001", repo: "agent-governor", status: "NEW", stage: "intake", runtime: "shell", pr: "" },
-  { id: "TASK-002", repo: "example-app", status: "WAITING_REQUIREMENTS_APPROVAL", stage: "requirements", runtime: "opencode", pr: "" }
-];
-
-const approvals = [
-  { task: "TASK-002", gate: "requirements", owner: "pending" },
-  { task: "TASK-004", gate: "pr", owner: "pending" }
-];
+import { getDashboardData } from "./data";
 
 export default function Page() {
+  const { tasks, approvals, runtimes, repos } = getDashboardData();
+
   return (
     <main className="min-h-screen">
       <div className="border-b border-zinc-800 bg-zinc-950">
@@ -42,14 +36,19 @@ export default function Page() {
               <tbody>
                 {tasks.map((task) => (
                   <tr key={task.id} className="border-t border-zinc-800">
-                    <td className="px-3 py-2 font-mono text-xs">{task.id}</td>
+                    <td className="px-3 py-2 font-mono text-xs">TASK-{task.id}</td>
                     <td className="px-3 py-2">{task.repo}</td>
                     <td className="px-3 py-2">{task.status}</td>
-                    <td className="px-3 py-2">{task.stage}</td>
+                    <td className="px-3 py-2">{task.stage ?? "none"}</td>
                     <td className="px-3 py-2">{task.runtime}</td>
                     <td className="px-3 py-2 text-zinc-500">{task.pr || "none"}</td>
                   </tr>
                 ))}
+                {tasks.length === 0 ? (
+                  <tr className="border-t border-zinc-800">
+                    <td className="px-3 py-6 text-zinc-500" colSpan={6}>No tasks yet</td>
+                  </tr>
+                ) : null}
               </tbody>
             </table>
           </div>
@@ -57,30 +56,47 @@ export default function Page() {
 
         <aside className="space-y-4">
           <section className="rounded-md border border-zinc-800 p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase text-zinc-400">Pending Approvals</h2>
+            <h2 className="mb-3 text-sm font-semibold uppercase text-zinc-400">Approvals</h2>
             <div className="space-y-2">
               {approvals.map((approval) => (
-                <div key={`${approval.task}-${approval.gate}`} className="flex items-center justify-between text-sm">
-                  <span className="font-mono text-xs">{approval.task}</span>
-                  <span>{approval.gate}</span>
-                  <button className="h-7 rounded-md border border-zinc-700 px-2 text-xs">Approve</button>
+                <div key={`${approval.taskId}-${approval.stage}-${approval.status}`} className="flex items-center justify-between text-sm">
+                  <span className="font-mono text-xs">TASK-{approval.taskId}</span>
+                  <span>{approval.stage}</span>
+                  <span className={approval.status === "approved" ? "text-emerald-400" : "text-zinc-500"}>{approval.status}</span>
                 </div>
               ))}
+              {approvals.length === 0 ? <p className="text-sm text-zinc-500">No approvals recorded</p> : null}
             </div>
           </section>
 
           <section className="rounded-md border border-zinc-800 p-4">
             <h2 className="mb-3 text-sm font-semibold uppercase text-zinc-400">Runtime Health</h2>
             <div className="grid gap-2 text-sm">
-              <div className="flex justify-between"><span>shell</span><span className="text-emerald-400">ready</span></div>
-              <div className="flex justify-between"><span>opencode</span><span className="text-zinc-500">optional</span></div>
-              <div className="flex justify-between"><span>aider</span><span className="text-zinc-500">placeholder</span></div>
+              {runtimes.map((runtime) => (
+                <div className="flex justify-between" key={runtime.id}>
+                  <span>{runtime.id}</span>
+                  <span className={runtime.enabled ? "text-emerald-400" : "text-zinc-500"}>{runtime.enabled ? "enabled" : "disabled"}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-md border border-zinc-800 p-4">
+            <h2 className="mb-3 text-sm font-semibold uppercase text-zinc-400">Repos</h2>
+            <div className="grid gap-2 text-sm">
+              {repos.map((repo) => (
+                <div className="flex justify-between gap-3" key={repo.id}>
+                  <span>{repo.name}</span>
+                  <span className="truncate text-zinc-500">{repo.github}</span>
+                </div>
+              ))}
+              {repos.length === 0 ? <p className="text-sm text-zinc-500">No repos registered</p> : null}
             </div>
           </section>
 
           <section className="rounded-md border border-zinc-800 p-4">
             <h2 className="mb-3 text-sm font-semibold uppercase text-zinc-400">Live Logs</h2>
-            <pre className="h-40 overflow-auto rounded bg-black p-3 text-xs text-zinc-400">worker idle{"\n"}telegram bot disconnected{"\n"}sqlite ready</pre>
+            <pre className="h-40 overflow-auto rounded bg-black p-3 text-xs text-zinc-400">sqlite ready{"\n"}workflow runner ready{"\n"}runtime router ready</pre>
           </section>
         </aside>
       </div>

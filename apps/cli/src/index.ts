@@ -3,9 +3,10 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { execa } from "execa";
 import { Command } from "commander";
-import { loadConfig } from "@agent-governor/config";
+import { loadConfig, projectRoot } from "@agent-governor/config";
 import { ApprovalEngine, migrate, openDb, RepoRegistry, TaskStore } from "@agent-governor/db";
 import { ShellAdapter } from "@agent-governor/runtime";
+import { WorkflowEngine } from "@agent-governor/workflow";
 
 const program = new Command();
 
@@ -70,12 +71,13 @@ program
   .option("--owners <ids>", "Comma-separated Telegram owner IDs")
   .action((options) => {
     const { db } = dbForCwd();
+    const root = projectRoot(process.cwd());
     const repo = new RepoRegistry(db).addRepo({
       name: options.name,
       githubOwner: options.owner,
       githubRepo: options.repo,
       defaultBranch: options.branch,
-      localPath: resolve(process.cwd(), options.path),
+      localPath: resolve(root, options.path),
       owners: (options.owners ?? "").split(",").map((id: string) => id.trim()).filter(Boolean)
     });
     console.log(`Registered repo ${repo.name}`);
@@ -91,6 +93,30 @@ program.command("list-runtimes").description("List configured runtime adapters")
     capabilities: agent.capabilities.join(",")
   })));
 });
+
+program
+  .command("create-task")
+  .description("Create a task idea for a registered repo")
+  .requiredOption("--repo <name>", "Registered repo name")
+  .requiredOption("--title <title>", "Task title")
+  .requiredOption("--description <description>", "Task description")
+  .option("--actor <id>", "Actor ID", "cli")
+  .action((options) => {
+    const { db } = dbForCwd();
+    const registry = new RepoRegistry(db);
+    const repo = registry.findByName(options.repo);
+    if (!repo) {
+      throw new Error(`Repo not found: ${options.repo}`);
+    }
+    const task = new TaskStore(db).createIdea({
+      repoId: repo.id,
+      createdBy: options.actor,
+      title: options.title,
+      description: options.description
+    });
+    console.log(`Created TASK-${task.id}`);
+    db.close();
+  });
 
 program.command("test-runtime <id>").description("Run a runtime health check").action(async (id) => {
   const { config } = dbForCwd();
@@ -139,15 +165,15 @@ bot.command("start").description("Start Telegram bot").action(async () => {
   await execa("pnpm", ["--filter", "@agent-governor/bot", "start"], { stdio: "inherit" });
 });
 
-program.command("run-task <taskId>").description("Placeholder for workflow execution").action((taskId) => {
-  const { db } = dbForCwd();
-  const task = new TaskStore(db).getTask(Number(String(taskId).replace(/^TASK-/i, "")));
-  console.log(task);
+program.command("run-task <taskId>").description("Advance a task through the next allowed workflow stage").action(async (taskId) => {
+  const { config, db } = dbForCwd();
+  const task = await new WorkflowEngine({ db, config }).advance(Number(String(taskId).replace(/^TASK-/i, "")));
+  console.log(`TASK-${task.id} ${task.status} ${task.current_stage ?? ""}`.trim());
   db.close();
 });
 
-if (!existsSync(resolve(process.cwd(), "config"))) {
-  writeFileSync(resolve(process.cwd(), ".agent-governor-warning"), "Run from the Agent Governor project root.\n");
+if (!existsSync(resolve(projectRoot(process.cwd()), "config"))) {
+  writeFileSync(resolve(projectRoot(process.cwd()), ".agent-governor-warning"), "Run from the Agent Governor project root.\n");
 }
 
 program.parseAsync();
