@@ -70,9 +70,9 @@ program
   .option("--branch <branch>", "Default branch", "main")
   .option("--owners <ids>", "Comma-separated Telegram owner IDs")
   .action((options) => {
-    const { db } = dbForCwd();
+    const { config, db } = dbForCwd();
     const root = projectRoot(process.cwd());
-    const repo = new RepoRegistry(db).addRepo({
+    const repo = new WorkflowEngine({ db, config }).registerRepo({
       name: options.name,
       githubOwner: options.owner,
       githubRepo: options.repo,
@@ -81,6 +81,51 @@ program
       owners: (options.owners ?? "").split(",").map((id: string) => id.trim()).filter(Boolean)
     });
     console.log(`Registered repo ${repo.name}`);
+    db.close();
+  });
+
+program
+  .command("clone-repo")
+  .description("Clone and register a GitHub repository")
+  .requiredOption("--name <name>", "Local registry name")
+  .requiredOption("--owner <owner>", "GitHub owner or org")
+  .requiredOption("--repo <repo>", "GitHub repository name")
+  .option("--path <path>", "Local path; defaults to repos/<name>/main")
+  .option("--branch <branch>", "Default branch", "main")
+  .option("--owners <ids>", "Comma-separated Telegram owner IDs")
+  .action(async (options) => {
+    const { config, db } = dbForCwd();
+    const root = projectRoot(process.cwd());
+    const repo = await new WorkflowEngine({ db, config }).cloneRepo({
+      name: options.name,
+      githubOwner: options.owner,
+      githubRepo: options.repo,
+      defaultBranch: options.branch,
+      localPath: options.path ? resolve(root, options.path) : undefined,
+      owners: (options.owners ?? "").split(",").map((id: string) => id.trim()).filter(Boolean)
+    });
+    console.log(`Cloned and registered ${repo.name} at ${repo.local_path}`);
+    db.close();
+  });
+
+program
+  .command("create-repo")
+  .description("Create a GitHub repo, clone it locally, initialize .ai, and register it")
+  .requiredOption("--name <name>", "Repository name")
+  .option("--description <description>", "GitHub repository description")
+  .option("--owner <owner>", "GitHub owner or org")
+  .option("--public", "Create a public repository")
+  .option("--owners <ids>", "Comma-separated Telegram owner IDs")
+  .action(async (options) => {
+    const { config, db } = dbForCwd();
+    const repo = await new WorkflowEngine({ db, config }).createGithubRepo({
+      name: options.name,
+      description: options.description,
+      owner: options.owner,
+      private: !options.public,
+      owners: (options.owners ?? "").split(",").map((id: string) => id.trim()).filter(Boolean)
+    });
+    console.log(`Created and registered ${repo.github_owner}/${repo.github_repo}`);
     db.close();
   });
 

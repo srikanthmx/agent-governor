@@ -1,4 +1,5 @@
 import { getDashboardData } from "./data";
+import Link from "next/link";
 
 export default function Page() {
   const { tasks, approvals, runtimes, repos } = getDashboardData();
@@ -36,7 +37,11 @@ export default function Page() {
               <tbody>
                 {tasks.map((task) => (
                   <tr key={task.id} className="border-t border-zinc-800">
-                    <td className="px-3 py-2 font-mono text-xs">TASK-{task.id}</td>
+                    <td className="px-3 py-2 font-mono text-xs">
+                      <Link className="text-zinc-100 underline decoration-zinc-700 underline-offset-4" href={`/tasks/${task.id}`}>
+                        TASK-{task.id}
+                      </Link>
+                    </td>
                     <td className="px-3 py-2">{task.repo}</td>
                     <td className="px-3 py-2">{task.status}</td>
                     <td className="px-3 py-2">{task.stage ?? "none"}</td>

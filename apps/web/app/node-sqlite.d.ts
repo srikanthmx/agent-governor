@@ -4,6 +4,7 @@ declare module "node:sqlite" {
     exec(sql: string): void;
     prepare(sql: string): {
       all(...params: unknown[]): unknown[];
+      get(...params: unknown[]): unknown;
     };
     close(): void;
   }

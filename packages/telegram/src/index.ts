@@ -40,10 +40,20 @@ export function createTelegramBot(input: { token: string; db: GovernorDb; config
     ctx.reply(rows.length ? rows.map((repo) => `${repo.name} ${repo.github_owner}/${repo.github_repo}`).join("\n") : "No repos registered.");
   });
 
-  bot.command("newrepo", (ctx) => {
+  bot.command("newrepo", async (ctx) => {
     const actor = userId(ctx);
     approvals.requireOwner(actor);
-    ctx.reply("Repo creation is scaffolded. Use CLI `agent add-repo` for this first slice.");
+    const [, name, ...descriptionParts] = ctx.message.text.split(/\s+/);
+    if (!name) {
+      ctx.reply("Usage: /newrepo <name> <description>");
+      return;
+    }
+    const repo = await workflow.createGithubRepo({
+      name,
+      description: descriptionParts.join(" ").trim() || undefined,
+      owners: [actor]
+    });
+    ctx.reply(`Created and registered ${repo.github_owner}/${repo.github_repo}`);
   });
 
   bot.command("selectrepo", (ctx) => {

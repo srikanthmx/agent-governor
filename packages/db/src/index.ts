@@ -131,6 +131,22 @@ export class RepoRegistry {
     localPath: string;
     owners?: string[];
   }): RepoRecord {
+    const existing = this.findByName(input.name);
+    if (existing) {
+      this.db
+        .prepare(
+          `UPDATE repos
+           SET github_owner = ?, github_repo = ?, default_branch = ?, local_path = ?, active = 1
+           WHERE id = ?`
+        )
+        .run(input.githubOwner, input.githubRepo, input.defaultBranch, input.localPath, existing.id);
+      for (const owner of input.owners ?? []) {
+        this.db
+          .prepare("INSERT OR IGNORE INTO repo_owners (repo_id, telegram_user_id) VALUES (?, ?)")
+          .run(existing.id, owner);
+      }
+      return this.getRepo(existing.id);
+    }
     const createdAt = nowIso();
     const result = this.db
       .prepare(

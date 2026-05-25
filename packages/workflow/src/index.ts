@@ -156,6 +156,84 @@ export class WorkflowEngine {
     this.approvals = new ApprovalEngine(input.db, input.config.app.telegram.ownerTelegramIds);
   }
 
+  registerRepo(input: {
+    name: string;
+    githubOwner: string;
+    githubRepo: string;
+    localPath: string;
+    defaultBranch?: string;
+    owners?: string[];
+  }) {
+    if (existsSync(input.localPath)) {
+      initAiDirectory(input.localPath);
+    }
+    const repo = this.repos.addRepo({
+      name: input.name,
+      githubOwner: input.githubOwner,
+      githubRepo: input.githubRepo,
+      defaultBranch: input.defaultBranch ?? this.input.config.app.github.defaultBranch,
+      localPath: input.localPath,
+      owners: input.owners
+    });
+    audit(this.input.db, {
+      actorType: "system",
+      actorId: "repo-registry",
+      action: "repo.register",
+      entityType: "repo",
+      entityId: String(repo.id),
+      metadata: { name: repo.name, localPath: repo.local_path }
+    });
+    return repo;
+  }
+
+  async cloneRepo(input: {
+    name: string;
+    githubOwner: string;
+    githubRepo: string;
+    localPath?: string;
+    defaultBranch?: string;
+    owners?: string[];
+  }) {
+    const localPath = input.localPath ?? join(this.input.config.app.paths.repoRoot, input.name, "main");
+    if (!existsSync(localPath)) {
+      await new GhCliManager().cloneRepo({ owner: input.githubOwner, repo: input.githubRepo, path: localPath });
+    }
+    initAiDirectory(localPath);
+    return this.registerRepo({
+      name: input.name,
+      githubOwner: input.githubOwner,
+      githubRepo: input.githubRepo,
+      localPath,
+      defaultBranch: input.defaultBranch,
+      owners: input.owners
+    });
+  }
+
+  async createGithubRepo(input: {
+    name: string;
+    description?: string;
+    owner?: string;
+    private?: boolean;
+    owners?: string[];
+  }) {
+    const githubOwner = input.owner ?? this.input.config.app.github.owner;
+    if (!githubOwner) {
+      throw new Error("GitHub owner is required");
+    }
+    await new GhCliManager().createRepo({
+      owner: githubOwner,
+      name: input.name,
+      description: input.description,
+      private: input.private
+    });
+    return this.cloneRepo({
+      name: input.name,
+      githubOwner,
+      githubRepo: input.name,
+      owners: input.owners
+    });
+  }
+
   async advance(taskId: number, actorId = "cli"): Promise<TaskRecord> {
     const task = this.tasks.getTask(taskId);
     const repo = this.repos.getRepo(task.repo_id);
