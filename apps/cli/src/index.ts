@@ -5,6 +5,8 @@ import { execa } from "execa";
 import { Command } from "commander";
 import { loadConfig, projectRoot } from "@agent-governor/config";
 import { ApprovalEngine, migrate, openDb, RepoRegistry, TaskStore } from "@agent-governor/db";
+import { GitWorktreeManager } from "@agent-governor/git";
+import { GhCliManager } from "@agent-governor/github";
 import { ShellAdapter } from "@agent-governor/runtime";
 import { WorkflowEngine } from "@agent-governor/workflow";
 
@@ -145,6 +147,45 @@ program.command("approve <taskId>").description("Approve a task stage as owner")
   console.log(`Approved ${taskId} for ${options.stage}`);
   db.close();
 });
+
+program
+  .command("open-pr <taskId>")
+  .description("Commit, push, and open a PR for an owner-approved task")
+  .requiredOption("--owner <id>", "Telegram owner ID")
+  .option("--title <title>", "PR title")
+  .option("--body <body>", "PR body")
+  .action(async (taskId, options) => {
+    const { config, db } = dbForCwd();
+    const id = Number(String(taskId).replace(/^TASK-/i, ""));
+    const tasks = new TaskStore(db);
+    const repos = new RepoRegistry(db);
+    const approvals = new ApprovalEngine(db, config.app.telegram.ownerTelegramIds);
+    const task = tasks.getTask(id);
+    const repo = repos.getRepo(task.repo_id);
+
+    approvals.requireOwner(options.owner, task.repo_id);
+    if (!approvals.hasApproval(task.id, "pr")) {
+      throw new Error(`TASK-${task.id} needs PR approval before opening a PR`);
+    }
+    if (!task.worktree_path || !task.branch_name) {
+      throw new Error(`TASK-${task.id} has no worktree or branch yet`);
+    }
+
+    const git = new GitWorktreeManager();
+    await git.commitAll({ cwd: task.worktree_path, message: `TASK-${task.id}: ${task.title}` });
+    await git.pushBranch({ cwd: task.worktree_path, branch: task.branch_name });
+    const prUrl = await new GhCliManager().createPullRequest({
+      cwd: task.worktree_path,
+      title: options.title ?? `TASK-${task.id}: ${task.title}`,
+      body: options.body ?? task.description,
+      base: repo.default_branch,
+      head: task.branch_name
+    });
+    tasks.setExecutionContext(task.id, { prUrl });
+    tasks.updateStatus(task.id, "PR_OPENED", "pr");
+    console.log(prUrl);
+    db.close();
+  });
 
 program.command("logs <taskId>").description("Show the expected logs path for a task").action((taskId) => {
   const { config } = dbForCwd();

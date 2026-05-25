@@ -194,7 +194,7 @@ export class WorkflowEngine {
       if (!this.approvals.hasApproval(task.id, "design")) {
         throw new Error(`TASK-${task.id} is waiting for design approval`);
       }
-      await this.runArtifactStage({ task, stage: "implementation", status: "PR_READY", worktreePath, workflowStages });
+      await this.runArtifactStage({ task, stage: "implementation", status: "WAITING_PR_APPROVAL", worktreePath, workflowStages });
       audit(this.input.db, { actorType: "system", actorId, action: "task.ready_for_pr", entityType: "task", entityId: String(task.id) });
       return this.tasks.getTask(task.id);
     }

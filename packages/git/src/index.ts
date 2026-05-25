@@ -20,7 +20,15 @@ export class GitWorktreeManager {
     if (existsSync(input.worktreePath)) {
       return branch;
     }
-    await execa("git", ["worktree", "add", "-b", branch, input.worktreePath], {
+    await execa("git", ["worktree", "prune"], { cwd: input.repoPath, reject: false });
+    const existingBranch = await execa("git", ["show-ref", "--verify", "--quiet", `refs/heads/${branch}`], {
+      cwd: input.repoPath,
+      reject: false
+    });
+    const args = existingBranch.exitCode === 0
+      ? ["worktree", "add", input.worktreePath, branch]
+      : ["worktree", "add", "-b", branch, input.worktreePath];
+    await execa("git", args, {
       cwd: input.repoPath,
       stdio: "inherit"
     });
