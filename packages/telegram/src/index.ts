@@ -1,5 +1,6 @@
 import type { GovernorConfig } from "@agent-governor/config";
 import { ApprovalEngine, audit, type GovernorDb, RepoRegistry, TaskStore } from "@agent-governor/db";
+import { WorkflowEngine } from "@agent-governor/workflow";
 import { Telegraf } from "telegraf";
 
 export function createTelegramBot(input: { token: string; db: GovernorDb; config: GovernorConfig }): Telegraf {
@@ -7,6 +8,7 @@ export function createTelegramBot(input: { token: string; db: GovernorDb; config
   const repos = new RepoRegistry(input.db);
   const tasks = new TaskStore(input.db);
   const approvals = new ApprovalEngine(input.db, input.config.app.telegram.ownerTelegramIds);
+  const workflow = new WorkflowEngine({ db: input.db, config: input.config });
   const selections = new Map<string, string>();
 
   const userId = (ctx: { from?: { id: number } }) => String(ctx.from?.id ?? "");
@@ -92,7 +94,7 @@ export function createTelegramBot(input: { token: string; db: GovernorDb; config
     ctx.reply(`TASK-${task.id}\nStatus: ${task.status}\nStage: ${task.current_stage ?? "none"}\nPR: ${task.pr_url ?? "none"}`);
   });
 
-  bot.command("approve", (ctx) => {
+  bot.command("approve", async (ctx) => {
     const actor = userId(ctx);
     const id = Number(ctx.message.text.split(/\s+/)[1]?.replace(/^TASK-/i, ""));
     if (!id) {
@@ -100,21 +102,63 @@ export function createTelegramBot(input: { token: string; db: GovernorDb; config
       return;
     }
     const task = tasks.getTask(id);
-    approvals.approve(id, task.current_stage ?? task.status, actor);
-    audit(input.db, { actorType: "telegram", actorId: actor, action: "task.approve", entityType: "task", entityId: String(id) });
-    ctx.reply(`Approved TASK-${id}`);
+    const stage = task.status === "WAITING_PR_APPROVAL" ? "pr" : task.current_stage ?? task.status;
+    await workflow.approve(id, stage, actor);
+    if (stage === "requirements" || stage === "design") {
+      const advanced = await workflow.advance(id, actor);
+      ctx.reply(`Approved TASK-${id}; advanced to ${advanced.status}`);
+      return;
+    }
+    ctx.reply(`Approved TASK-${id} for ${stage}`);
   });
 
-  bot.command(["change", "reject", "pr", "merge"], (ctx) => {
+  bot.command("change", async (ctx) => {
     const actor = userId(ctx);
     const id = Number(ctx.message.text.split(/\s+/)[1]?.replace(/^TASK-/i, ""));
     if (!id) {
-      ctx.reply(`Usage: ${ctx.message.text.split(/\s+/)[0]} <taskId>`);
+      ctx.reply("Usage: /change <taskId> <feedback>");
       return;
     }
     const task = tasks.getTask(id);
-    approvals.requireOwner(actor, task.repo_id);
-    ctx.reply("This owner-gated command is scaffolded and will be connected to the workflow engine next.");
+    const feedback = ctx.message.text.split(/\s+/).slice(2).join(" ").trim();
+    await workflow.requestChanges(id, task.current_stage ?? "review", actor, feedback);
+    ctx.reply(`Requested changes for TASK-${id}`);
+  });
+
+  bot.command("reject", async (ctx) => {
+    const actor = userId(ctx);
+    const id = Number(ctx.message.text.split(/\s+/)[1]?.replace(/^TASK-/i, ""));
+    if (!id) {
+      ctx.reply("Usage: /reject <taskId>");
+      return;
+    }
+    const task = tasks.getTask(id);
+    await workflow.reject(id, task.current_stage ?? "review", actor);
+    ctx.reply(`Rejected TASK-${id}`);
+  });
+
+  bot.command("pr", async (ctx) => {
+    const actor = userId(ctx);
+    const id = Number(ctx.message.text.split(/\s+/)[1]?.replace(/^TASK-/i, ""));
+    if (!id) {
+      ctx.reply("Usage: /pr <taskId>");
+      return;
+    }
+    await workflow.approve(id, "pr", actor);
+    const task = await workflow.openPullRequest(id, actor);
+    ctx.reply(`Opened PR for TASK-${id}: ${task.pr_url}`);
+  });
+
+  bot.command("merge", async (ctx) => {
+    const actor = userId(ctx);
+    const id = Number(ctx.message.text.split(/\s+/)[1]?.replace(/^TASK-/i, ""));
+    if (!id) {
+      ctx.reply("Usage: /merge <taskId>");
+      return;
+    }
+    await workflow.approve(id, "merge", actor);
+    const task = await workflow.mergePullRequest(id, actor);
+    ctx.reply(`Merged TASK-${id}: ${task.pr_url}`);
   });
 
   bot.command("agents", (ctx) => {

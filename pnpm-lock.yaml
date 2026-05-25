@@ -162,6 +162,9 @@ importers:
       '@agent-governor/db':
         specifier: workspace:*
         version: link:../db
+      '@agent-governor/workflow':
+        specifier: workspace:*
+        version: link:../workflow
       telegraf:
         specifier: ^4.16.3
         version: 4.16.3
@@ -189,6 +192,9 @@ importers:
       '@agent-governor/git':
         specifier: workspace:*
         version: link:../git
+      '@agent-governor/github':
+        specifier: workspace:*
+        version: link:../github
       '@agent-governor/runtime':
         specifier: workspace:*
         version: link:../runtime

@@ -4,6 +4,7 @@ import type { GovernorConfig } from "@agent-governor/config";
 import { nowIso, type RuntimeAdapter, type RuntimeType, type TaskRecord, type TaskStatus } from "@agent-governor/core";
 import { ApprovalEngine, audit, type GovernorDb, RepoRegistry, TaskStore } from "@agent-governor/db";
 import { GitWorktreeManager, initAiDirectory } from "@agent-governor/git";
+import { GhCliManager } from "@agent-governor/github";
 import { PlaceholderAdapter, RuntimeRouter, ShellAdapter } from "@agent-governor/runtime";
 
 type StageId = "requirements" | "design" | "implementation" | "review" | "pr";
@@ -200,6 +201,104 @@ export class WorkflowEngine {
     }
 
     return task;
+  }
+
+  async approve(taskId: number, stage: string, ownerId: string, comment?: string): Promise<TaskRecord> {
+    const task = this.tasks.getTask(taskId);
+    this.approvals.approve(taskId, stage, ownerId, comment);
+    audit(this.input.db, {
+      actorType: "owner",
+      actorId: ownerId,
+      action: "task.approve",
+      entityType: "task",
+      entityId: String(taskId),
+      metadata: { stage, comment }
+    });
+    return task;
+  }
+
+  async reject(taskId: number, stage: string, ownerId: string, comment?: string): Promise<TaskRecord> {
+    const task = this.tasks.getTask(taskId);
+    this.approvals.reject(taskId, stage, ownerId, comment);
+    this.tasks.updateStatus(taskId, "REJECTED", stage);
+    audit(this.input.db, {
+      actorType: "owner",
+      actorId: ownerId,
+      action: "task.reject",
+      entityType: "task",
+      entityId: String(taskId),
+      metadata: { stage, comment }
+    });
+    return this.tasks.getTask(task.id);
+  }
+
+  async requestChanges(taskId: number, stage: string, ownerId: string, feedback: string): Promise<TaskRecord> {
+    const task = this.tasks.getTask(taskId);
+    this.approvals.requireOwner(ownerId, task.repo_id);
+    this.tasks.updateStatus(taskId, "FIXING", stage);
+    audit(this.input.db, {
+      actorType: "owner",
+      actorId: ownerId,
+      action: "task.change_requested",
+      entityType: "task",
+      entityId: String(taskId),
+      metadata: { stage, feedback }
+    });
+    return this.tasks.getTask(task.id);
+  }
+
+  async openPullRequest(taskId: number, ownerId: string, input?: { title?: string; body?: string }): Promise<TaskRecord> {
+    const task = this.tasks.getTask(taskId);
+    const repo = this.repos.getRepo(task.repo_id);
+    this.approvals.requireOwner(ownerId, task.repo_id);
+    if (!this.approvals.hasApproval(task.id, "pr")) {
+      throw new Error(`TASK-${task.id} needs PR approval before opening a PR`);
+    }
+    if (!task.worktree_path || !task.branch_name) {
+      throw new Error(`TASK-${task.id} has no worktree or branch yet`);
+    }
+    await this.git.commitAll({ cwd: task.worktree_path, message: `TASK-${task.id}: ${task.title}` });
+    await this.git.pushBranch({ cwd: task.worktree_path, branch: task.branch_name });
+    const prUrl = await new GhCliManager().createPullRequest({
+      cwd: task.worktree_path,
+      title: input?.title ?? `TASK-${task.id}: ${task.title}`,
+      body: input?.body ?? task.description,
+      base: repo.default_branch,
+      head: task.branch_name
+    });
+    this.tasks.setExecutionContext(task.id, { prUrl });
+    this.tasks.updateStatus(task.id, "PR_OPENED", "pr");
+    audit(this.input.db, {
+      actorType: "owner",
+      actorId: ownerId,
+      action: "pr.open",
+      entityType: "task",
+      entityId: String(task.id),
+      metadata: { prUrl }
+    });
+    return this.tasks.getTask(task.id);
+  }
+
+  async mergePullRequest(taskId: number, ownerId: string): Promise<TaskRecord> {
+    const task = this.tasks.getTask(taskId);
+    this.approvals.requireOwner(ownerId, task.repo_id);
+    if (!this.approvals.hasApproval(task.id, "merge")) {
+      throw new Error(`TASK-${task.id} needs merge approval before merge`);
+    }
+    if (!task.worktree_path || !task.pr_url) {
+      throw new Error(`TASK-${task.id} has no opened PR`);
+    }
+    await new GhCliManager().mergePullRequest({ cwd: task.worktree_path, pr: task.pr_url, method: "squash" });
+    this.tasks.updateStatus(task.id, "MERGED", "merge");
+    audit(this.input.db, {
+      actorType: "owner",
+      actorId: ownerId,
+      action: "pr.merge",
+      entityType: "task",
+      entityId: String(task.id),
+      metadata: { prUrl: task.pr_url }
+    });
+    return this.tasks.getTask(task.id);
   }
 
   private async runArtifactStage(input: {

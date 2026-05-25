@@ -4,9 +4,7 @@ import { resolve } from "node:path";
 import { execa } from "execa";
 import { Command } from "commander";
 import { loadConfig, projectRoot } from "@agent-governor/config";
-import { ApprovalEngine, migrate, openDb, RepoRegistry, TaskStore } from "@agent-governor/db";
-import { GitWorktreeManager } from "@agent-governor/git";
-import { GhCliManager } from "@agent-governor/github";
+import { migrate, openDb, RepoRegistry, TaskStore } from "@agent-governor/db";
 import { ShellAdapter } from "@agent-governor/runtime";
 import { WorkflowEngine } from "@agent-governor/workflow";
 
@@ -143,7 +141,7 @@ program.command("approve <taskId>").description("Approve a task stage as owner")
     throw new Error("--owner is required until Telegram identity is available");
   }
   const { config, db } = dbForCwd();
-  new ApprovalEngine(db, config.app.telegram.ownerTelegramIds).approve(Number(String(taskId).replace(/^TASK-/i, "")), options.stage, options.owner);
+  new WorkflowEngine({ db, config }).approve(Number(String(taskId).replace(/^TASK-/i, "")), options.stage, options.owner);
   console.log(`Approved ${taskId} for ${options.stage}`);
   db.close();
 });
@@ -157,33 +155,61 @@ program
   .action(async (taskId, options) => {
     const { config, db } = dbForCwd();
     const id = Number(String(taskId).replace(/^TASK-/i, ""));
-    const tasks = new TaskStore(db);
-    const repos = new RepoRegistry(db);
-    const approvals = new ApprovalEngine(db, config.app.telegram.ownerTelegramIds);
-    const task = tasks.getTask(id);
-    const repo = repos.getRepo(task.repo_id);
-
-    approvals.requireOwner(options.owner, task.repo_id);
-    if (!approvals.hasApproval(task.id, "pr")) {
-      throw new Error(`TASK-${task.id} needs PR approval before opening a PR`);
-    }
-    if (!task.worktree_path || !task.branch_name) {
-      throw new Error(`TASK-${task.id} has no worktree or branch yet`);
-    }
-
-    const git = new GitWorktreeManager();
-    await git.commitAll({ cwd: task.worktree_path, message: `TASK-${task.id}: ${task.title}` });
-    await git.pushBranch({ cwd: task.worktree_path, branch: task.branch_name });
-    const prUrl = await new GhCliManager().createPullRequest({
-      cwd: task.worktree_path,
-      title: options.title ?? `TASK-${task.id}: ${task.title}`,
-      body: options.body ?? task.description,
-      base: repo.default_branch,
-      head: task.branch_name
+    const task = await new WorkflowEngine({ db, config }).openPullRequest(id, options.owner, {
+      title: options.title,
+      body: options.body
     });
-    tasks.setExecutionContext(task.id, { prUrl });
-    tasks.updateStatus(task.id, "PR_OPENED", "pr");
-    console.log(prUrl);
+    console.log(task.pr_url);
+    db.close();
+  });
+
+program
+  .command("merge <taskId>")
+  .description("Merge an owner-approved PR")
+  .requiredOption("--owner <id>", "Telegram owner ID")
+  .action(async (taskId, options) => {
+    const { config, db } = dbForCwd();
+    const task = await new WorkflowEngine({ db, config }).mergePullRequest(
+      Number(String(taskId).replace(/^TASK-/i, "")),
+      options.owner
+    );
+    console.log(`TASK-${task.id} ${task.status}`);
+    db.close();
+  });
+
+program
+  .command("change <taskId>")
+  .description("Request changes on a task")
+  .requiredOption("--owner <id>", "Telegram owner ID")
+  .requiredOption("--feedback <feedback>", "Requested changes")
+  .option("--stage <stage>", "Stage", "review")
+  .action(async (taskId, options) => {
+    const { config, db } = dbForCwd();
+    const task = await new WorkflowEngine({ db, config }).requestChanges(
+      Number(String(taskId).replace(/^TASK-/i, "")),
+      options.stage,
+      options.owner,
+      options.feedback
+    );
+    console.log(`TASK-${task.id} ${task.status}`);
+    db.close();
+  });
+
+program
+  .command("reject <taskId>")
+  .description("Reject a task")
+  .requiredOption("--owner <id>", "Telegram owner ID")
+  .option("--stage <stage>", "Stage", "review")
+  .option("--comment <comment>", "Rejection comment")
+  .action(async (taskId, options) => {
+    const { config, db } = dbForCwd();
+    const task = await new WorkflowEngine({ db, config }).reject(
+      Number(String(taskId).replace(/^TASK-/i, "")),
+      options.stage,
+      options.owner,
+      options.comment
+    );
+    console.log(`TASK-${task.id} ${task.status}`);
     db.close();
   });
 

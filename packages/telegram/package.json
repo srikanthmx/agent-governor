@@ -15,6 +15,7 @@
     "@agent-governor/config": "workspace:*",
     "@agent-governor/core": "workspace:*",
     "@agent-governor/db": "workspace:*",
+    "@agent-governor/workflow": "workspace:*",
     "telegraf": "^4.16.3"
   }
 }
