@@ -65,9 +65,18 @@ importers:
       '@agent-governor/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@agent-governor/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@agent-governor/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@agent-governor/workflow':
+        specifier: workspace:*
+        version: link:../../packages/workflow
+      execa:
+        specifier: ^9.3.0
+        version: 9.6.1
       next:
         specifier: ^14.2.5
         version: 14.2.35(react-dom@18.3.1(react@18.3.1))(react@18.3.1)

@@ -13,6 +13,7 @@ export default function Page() {
             <p className="text-xs text-zinc-400">Local control plane for PR-first agent work</p>
           </div>
           <button className="h-9 rounded-md border border-zinc-700 px-3 text-sm text-zinc-200">Command</button>
+          <Link className="h-9 rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-200" href="/settings/github">GitHub</Link>
         </div>
       </div>
 
@@ -84,7 +85,9 @@ export default function Page() {
                 ))}
                 {githubRepos.length === 0 ? (
                   <tr className="border-t border-zinc-800">
-                    <td className="px-3 py-6 text-zinc-500" colSpan={4}>Run `pnpm agent sync-github-repos` after GitHub auth.</td>
+                    <td className="px-3 py-6 text-zinc-500" colSpan={4}>
+                      <Link className="underline decoration-zinc-700 underline-offset-4" href="/settings/github">Authenticate GitHub and sync repos</Link>
+                    </td>
                   </tr>
                 ) : null}
               </tbody>
