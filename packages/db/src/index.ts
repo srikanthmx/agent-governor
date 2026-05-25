@@ -42,6 +42,19 @@ export function migrate(db: GovernorDb): void {
       UNIQUE(repo_id, telegram_user_id)
     );
 
+    CREATE TABLE IF NOT EXISTS github_repos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      name_with_owner TEXT NOT NULL UNIQUE,
+      github_owner TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      private INTEGER NOT NULL DEFAULT 0,
+      default_branch TEXT NOT NULL DEFAULT 'main',
+      url TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      synced_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS tasks (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       repo_id INTEGER NOT NULL REFERENCES repos(id),
@@ -104,11 +117,71 @@ export function migrate(db: GovernorDb): void {
   `);
 }
 
+export interface GitHubRepoRecord {
+  id: number;
+  name: string;
+  name_with_owner: string;
+  github_owner: string;
+  description: string;
+  private: number;
+  default_branch: string;
+  url: string;
+  updated_at: string;
+  synced_at: string;
+}
+
 export class RepoRegistry {
   constructor(private readonly db: GovernorDb) {}
 
   listRepos(): RepoRecord[] {
     return this.db.prepare("SELECT * FROM repos WHERE active = 1 ORDER BY name").all() as RepoRecord[];
+  }
+
+  upsertGithubRepos(repos: Array<{
+    name: string;
+    nameWithOwner: string;
+    owner: string;
+    description: string;
+    isPrivate: boolean;
+    defaultBranch: string;
+    url: string;
+    updatedAt: string;
+  }>): void {
+    const syncedAt = nowIso();
+    const statement = this.db.prepare(
+      `INSERT INTO github_repos
+       (name, name_with_owner, github_owner, description, private, default_branch, url, updated_at, synced_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(name_with_owner) DO UPDATE SET
+         name = excluded.name,
+         github_owner = excluded.github_owner,
+         description = excluded.description,
+         private = excluded.private,
+         default_branch = excluded.default_branch,
+         url = excluded.url,
+         updated_at = excluded.updated_at,
+         synced_at = excluded.synced_at`
+    );
+    const transaction = this.db.transaction((rows: typeof repos) => {
+      for (const repo of rows) {
+        statement.run(
+          repo.name,
+          repo.nameWithOwner,
+          repo.owner,
+          repo.description,
+          repo.isPrivate ? 1 : 0,
+          repo.defaultBranch,
+          repo.url,
+          repo.updatedAt,
+          syncedAt
+        );
+      }
+    });
+    transaction(repos);
+  }
+
+  listGithubRepos(): GitHubRepoRecord[] {
+    return this.db.prepare("SELECT * FROM github_repos ORDER BY updated_at DESC, name_with_owner ASC").all() as GitHubRepoRecord[];
   }
 
   findByName(name: string): RepoRecord | undefined {

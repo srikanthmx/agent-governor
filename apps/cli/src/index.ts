@@ -61,6 +61,33 @@ program.command("list-repos").description("List registered repositories").action
 });
 
 program
+  .command("sync-github-repos")
+  .description("Pull GitHub repositories through gh and cache them locally")
+  .option("--owner <owner>", "GitHub owner/org; defaults to app config or authenticated viewer")
+  .option("--limit <limit>", "Maximum repositories", "100")
+  .action(async (options) => {
+    const { config, db } = dbForCwd();
+    const repos = await new WorkflowEngine({ db, config }).syncGithubRepos({
+      owner: options.owner,
+      limit: Number(options.limit)
+    });
+    console.log(`Synced ${repos.length} GitHub repos`);
+    db.close();
+  });
+
+program.command("list-github-repos").description("List cached GitHub repositories").action(() => {
+  const { db } = dbForCwd();
+  const rows = new RepoRegistry(db).listGithubRepos();
+  console.table(rows.map((repo) => ({
+    repo: repo.name_with_owner,
+    visibility: repo.private ? "private" : "public",
+    branch: repo.default_branch,
+    updated: repo.updated_at
+  })));
+  db.close();
+});
+
+program
   .command("add-repo")
   .description("Register an existing repository")
   .requiredOption("--name <name>")

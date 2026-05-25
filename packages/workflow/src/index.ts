@@ -234,6 +234,21 @@ export class WorkflowEngine {
     });
   }
 
+  async syncGithubRepos(input?: { owner?: string; limit?: number }) {
+    const owner = input?.owner ?? this.input.config.app.github.owner;
+    const repos = await new GhCliManager().listRepos({ owner, limit: input?.limit });
+    this.repos.upsertGithubRepos(repos);
+    audit(this.input.db, {
+      actorType: "system",
+      actorId: "github",
+      action: "github.repos.sync",
+      entityType: "github_repos",
+      entityId: owner ?? "viewer",
+      metadata: { count: repos.length }
+    });
+    return repos;
+  }
+
   async advance(taskId: number, actorId = "cli"): Promise<TaskRecord> {
     const task = this.tasks.getTask(taskId);
     const repo = this.repos.getRepo(task.repo_id);

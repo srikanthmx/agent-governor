@@ -1,6 +1,7 @@
 import { execa } from "execa";
 
 export interface GitHubManager {
+  listRepos(input: { owner?: string; limit?: number }): Promise<GitHubRepo[]>;
   createRepo(input: { owner?: string; name: string; description?: string; private?: boolean }): Promise<string>;
   cloneRepo(input: { owner: string; repo: string; path: string }): Promise<void>;
   createPullRequest(input: { cwd: string; title: string; body: string; base: string; head?: string }): Promise<string>;
@@ -8,7 +9,51 @@ export interface GitHubManager {
   mergePullRequest(input: { cwd: string; pr: string; method?: "merge" | "squash" | "rebase" }): Promise<void>;
 }
 
+export interface GitHubRepo {
+  name: string;
+  nameWithOwner: string;
+  owner: string;
+  description: string;
+  isPrivate: boolean;
+  defaultBranch: string;
+  url: string;
+  updatedAt: string;
+}
+
 export class GhCliManager implements GitHubManager {
+  async listRepos(input: { owner?: string; limit?: number }): Promise<GitHubRepo[]> {
+    const args = [
+      "repo",
+      "list",
+      input.owner ?? "",
+      "--limit",
+      String(input.limit ?? 100),
+      "--json",
+      "name,nameWithOwner,owner,description,isPrivate,defaultBranchRef,url,updatedAt"
+    ].filter(Boolean);
+    const result = await execa("gh", args);
+    const rows = JSON.parse(result.stdout) as Array<{
+      name: string;
+      nameWithOwner: string;
+      owner: { login: string };
+      description?: string;
+      isPrivate: boolean;
+      defaultBranchRef?: { name: string };
+      url: string;
+      updatedAt: string;
+    }>;
+    return rows.map((repo) => ({
+      name: repo.name,
+      nameWithOwner: repo.nameWithOwner,
+      owner: repo.owner.login,
+      description: repo.description ?? "",
+      isPrivate: repo.isPrivate,
+      defaultBranch: repo.defaultBranchRef?.name ?? "main",
+      url: repo.url,
+      updatedAt: repo.updatedAt
+    }));
+  }
+
   async createRepo(input: { owner?: string; name: string; description?: string; private?: boolean }): Promise<string> {
     const repoName = input.owner ? `${input.owner}/${input.name}` : input.name;
     const args = ["repo", "create", repoName, input.private === false ? "--public" : "--private"];

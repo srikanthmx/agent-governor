@@ -8,6 +8,7 @@ export interface DashboardData {
   approvals: Array<{ taskId: number; stage: string; status: string }>;
   runtimes: Array<{ id: string; type: string; enabled: boolean }>;
   repos: Array<{ id: number; name: string; github: string }>;
+  githubRepos: Array<{ id: number; nameWithOwner: string; description: string; visibility: string; defaultBranch: string; url: string; updatedAt: string }>;
 }
 
 export interface TaskDetailData {
@@ -65,6 +66,18 @@ export function getDashboardData(): DashboardData {
       comment TEXT,
       created_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS github_repos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      name_with_owner TEXT NOT NULL UNIQUE,
+      github_owner TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      private INTEGER NOT NULL DEFAULT 0,
+      default_branch TEXT NOT NULL DEFAULT 'main',
+      url TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      synced_at TEXT NOT NULL
+    );
   `);
   try {
     const tasks = db.prepare(`
@@ -89,11 +102,25 @@ export function getDashboardData(): DashboardData {
       ORDER BY name
     `).all() as Array<{ id: number; name: string; github: string }>;
 
+    const githubRepos = db.prepare(`
+      SELECT id,
+             name_with_owner AS nameWithOwner,
+             description,
+             CASE private WHEN 1 THEN 'private' ELSE 'public' END AS visibility,
+             default_branch AS defaultBranch,
+             url,
+             updated_at AS updatedAt
+      FROM github_repos
+      ORDER BY updated_at DESC, name_with_owner ASC
+      LIMIT 100
+    `).all() as DashboardData["githubRepos"];
+
     return {
       tasks: tasks.map((task) => ({ ...task, runtime: config.agents.agents.find((agent) => agent.enabled)?.id ?? "none" })),
       approvals,
       runtimes: config.agents.agents.map((agent) => ({ id: agent.id, type: agent.type, enabled: agent.enabled })),
-      repos
+      repos,
+      githubRepos
     };
   } finally {
     db.close();
