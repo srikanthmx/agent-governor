@@ -1,0 +1,33 @@
+workflows:
+  default:
+    stages:
+      - id: requirements
+        role: requirements_writer
+        capability: requirements
+        approvalRequired: true
+        expectedOutput: markdown
+        artifact: requirements.md
+      - id: design
+        role: planner
+        capability: design
+        approvalRequired: true
+        expectedOutput: markdown
+        artifact: design.md
+      - id: implementation
+        role: implementer
+        capability: implementation
+        approvalRequired: true
+        expectedOutput: diff
+      - id: review
+        role: reviewer
+        capability: review
+        approvalRequired: false
+        expectedOutput: review
+      - id: pr
+        role: reviewer
+        capability: review
+        approvalRequired: true
+        expectedOutput: markdown
+      - id: merge
+        role: owner
+        approvalRequired: true

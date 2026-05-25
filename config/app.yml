@@ -1,0 +1,15 @@
+app:
+  name: Agent Governor
+
+paths:
+  repoRoot: ./repos
+  database: ./data/agent-governor.sqlite
+  logs: ./logs
+
+telegram:
+  botToken:
+  ownerTelegramIds: []
+
+github:
+  owner:
+  defaultBranch: main

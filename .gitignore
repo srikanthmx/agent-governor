@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.next/
+.turbo/
+.env
+data/*.sqlite
+data/*.sqlite-*
+logs/*
+!logs/.gitkeep
+repos/*
+!repos/.gitkeep

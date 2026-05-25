@@ -1,0 +1,64 @@
+agents:
+  - id: shell
+    label: Shell Adapter
+    type: shell
+    enabled: true
+    command: sh
+    args:
+      - -lc
+      - "cat \"$AGENT_GOVERNOR_PROMPT_FILE\""
+    capabilities:
+      - requirements
+      - design
+      - review
+    preferredRoles:
+      - requirements_writer
+      - reviewer
+
+  - id: opencode
+    label: OpenCode
+    type: opencode
+    enabled: false
+    command: opencode
+    args:
+      - run
+      - --prompt-file
+      - "{promptFile}"
+    capabilities:
+      - requirements
+      - design
+      - implementation
+      - review
+    preferredRoles:
+      - planner
+      - implementer
+      - reviewer
+
+  - id: aider
+    label: Aider
+    type: aider
+    enabled: false
+    capabilities:
+      - implementation
+
+  - id: cline
+    label: Cline
+    type: cline
+    enabled: false
+    capabilities:
+      - design
+      - review
+
+roles:
+  requirements_writer:
+    preferred: [opencode, shell]
+    fallback: [aider]
+  planner:
+    preferred: [opencode]
+    fallback: [cline, shell]
+  implementer:
+    preferred: [opencode, aider]
+    fallback: [shell]
+  reviewer:
+    preferred: [opencode, cline]
+    fallback: [shell]
