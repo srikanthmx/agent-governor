@@ -17,6 +17,12 @@ type ManagedRepo = {
   github: string;
 };
 
+type RuntimeOption = {
+  id: string;
+  label: string;
+  enabled: boolean;
+};
+
 async function readJson(response: Response) {
   const text = await response.text();
   if (!text) {
@@ -175,24 +181,25 @@ export function RepoWorkbench({ githubRepos, managedRepos }: { githubRepos: Gith
   );
 }
 
-export function CreateTaskPanel({ repos }: { repos: ManagedRepo[] }) {
+export function CreateTaskPanel({ repos, runtimes }: { repos: ManagedRepo[]; runtimes: RuntimeOption[] }) {
   const [repo, setRepo] = useState(repos[0]?.name ?? "");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [runtimeId, setRuntimeId] = useState(runtimes.find((runtime) => runtime.enabled)?.id ?? runtimes[0]?.id ?? "");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
-  async function createTask() {
+  async function createTask(run = false) {
     setBusy(true);
     setMessage("");
     try {
       const response = await fetch("/api/tasks/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repo, title, description })
+        body: JSON.stringify({ repo, title, description, runtimeId, run })
       });
       const result = await readJson(response);
-      setMessage(result.ok ? `Created ${result.taskId}` : result.error);
+      setMessage(result.ok ? `${run ? "Created and ran" : "Created"} ${result.taskId}` : result.error);
       if (result.ok) {
         window.location.reload();
       }
@@ -215,11 +222,54 @@ export function CreateTaskPanel({ repos }: { repos: ManagedRepo[] }) {
           {repos.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
         </select>
         <input className="h-9 rounded-md border border-[#343727] bg-[#090a07] px-2 text-sm text-[#f8f1d0]" placeholder="Task title" value={title} onChange={(event) => setTitle(event.target.value)} />
+        <select className="h-9 rounded-md border border-[#343727] bg-[#090a07] px-2 text-sm text-[#f8f1d0] md:col-span-2" value={runtimeId} onChange={(event) => setRuntimeId(event.target.value)}>
+          {runtimes.map((runtime) => <option key={runtime.id} value={runtime.id}>{runtime.label} {runtime.enabled ? "" : "(disabled)"}</option>)}
+        </select>
         <textarea className="min-h-20 rounded-md border border-[#343727] bg-[#090a07] p-2 text-sm text-[#f8f1d0] md:col-span-2" placeholder="Describe the work to govern" value={description} onChange={(event) => setDescription(event.target.value)} />
-        <button className="h-9 rounded-md bg-[#ffca58] px-3 text-sm font-black text-[#11120d] disabled:cursor-not-allowed disabled:bg-[#343727] disabled:text-[#8c8d7b] md:col-span-2" disabled={busy || !repo || !title || !description} onClick={createTask}>
+        <button className="h-9 rounded-md border border-[var(--ag-line)] bg-[var(--ag-panel-2)] px-3 text-sm font-semibold text-[var(--ag-heading)] disabled:cursor-not-allowed disabled:bg-[#343727] disabled:text-[#8c8d7b]" disabled={busy || !repo || !title || !description} onClick={() => createTask(false)}>
           {busy ? "Creating" : "Create Task"}
+        </button>
+        <button className="h-9 rounded-md bg-[var(--ag-amber)] px-3 text-sm font-semibold text-[#11120d] disabled:cursor-not-allowed disabled:bg-[#343727] disabled:text-[#8c8d7b]" disabled={busy || !repo || !title || !description || !runtimeId} onClick={() => createTask(true)}>
+          {busy ? "Running" : "Create & Run Requirements"}
         </button>
       </div>
     </section>
+  );
+}
+
+export function RunTaskButton({ taskId, runtimes }: { taskId: number; runtimes: RuntimeOption[] }) {
+  const [runtimeId, setRuntimeId] = useState(runtimes.find((runtime) => runtime.enabled)?.id ?? runtimes[0]?.id ?? "");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+
+  async function runTask() {
+    setBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/tasks/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskId, runtimeId })
+      });
+      const result = await readJson(response);
+      setMessage(result.ok ? "Run started" : result.error);
+      if (result.ok) {
+        window.location.reload();
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="grid gap-2">
+      <select className="h-8 rounded-md border border-[var(--ag-line)] bg-[var(--ag-surface)] px-2 text-xs text-[var(--ag-text)]" value={runtimeId} onChange={(event) => setRuntimeId(event.target.value)}>
+        {runtimes.map((runtime) => <option key={runtime.id} value={runtime.id}>{runtime.label} {runtime.enabled ? "" : "(disabled)"}</option>)}
+      </select>
+      <button className="h-8 rounded-md bg-[var(--ag-cyan)] px-3 text-xs font-semibold text-[#061018] disabled:opacity-50" disabled={busy || !runtimeId} onClick={runTask}>
+        {busy ? "Running" : "Run next stage"}
+      </button>
+      {message ? <div className="text-xs text-[var(--ag-muted)]">{message}</div> : null}
+    </div>
   );
 }

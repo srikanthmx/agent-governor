@@ -35,6 +35,63 @@ agents:
       - implementer
       - reviewer
 
+  - id: codex
+    label: Local Codex
+    type: shell
+    enabled: true
+    command: sh
+    args:
+      - -lc
+      - 'codex exec --skip-git-repo-check --sandbox danger-full-access "$(cat "$AGENT_GOVERNOR_PROMPT_FILE")"'
+    capabilities:
+      - requirements
+      - design
+      - implementation
+      - review
+    preferredRoles:
+      - requirements_writer
+      - planner
+      - implementer
+      - reviewer
+
+  - id: claude
+    label: Local Claude
+    type: shell
+    enabled: false
+    command: sh
+    args:
+      - -lc
+      - 'claude -p "$(cat "$AGENT_GOVERNOR_PROMPT_FILE")"'
+    capabilities:
+      - requirements
+      - design
+      - implementation
+      - review
+    preferredRoles:
+      - requirements_writer
+      - planner
+      - implementer
+      - reviewer
+
+  - id: gemini
+    label: Local Gemini
+    type: shell
+    enabled: false
+    command: sh
+    args:
+      - -lc
+      - 'gemini -p "$(cat "$AGENT_GOVERNOR_PROMPT_FILE")"'
+    capabilities:
+      - requirements
+      - design
+      - implementation
+      - review
+    preferredRoles:
+      - requirements_writer
+      - planner
+      - implementer
+      - reviewer
+
   - id: aider
     label: Aider
     type: aider
@@ -52,14 +109,14 @@ agents:
 
 roles:
   requirements_writer:
-    preferred: [opencode, shell]
+    preferred: [codex, claude, gemini, opencode, shell]
     fallback: [aider]
   planner:
-    preferred: [opencode]
+    preferred: [codex, claude, gemini, opencode]
     fallback: [cline, shell]
   implementer:
-    preferred: [opencode, aider]
+    preferred: [codex, claude, gemini, opencode, aider]
     fallback: [shell]
   reviewer:
-    preferred: [opencode, cline]
+    preferred: [codex, claude, gemini, opencode, cline]
     fallback: [shell]

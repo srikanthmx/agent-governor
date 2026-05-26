@@ -1,8 +1,9 @@
 import Link from "next/link";
+import { RunTaskButton } from "../../dashboard-actions";
 import { getTaskDetail } from "../../data";
 
 export default function TaskPage({ params }: { params: { taskId: string } }) {
-  const { task, artifacts, approvals } = getTaskDetail(Number(params.taskId));
+  const { task, artifacts, approvals, runtimes } = getTaskDetail(Number(params.taskId));
 
   if (!task) {
     return (
@@ -53,6 +54,9 @@ export default function TaskPage({ params }: { params: { taskId: string } }) {
               <div><dt className="text-zinc-500">Worktree</dt><dd className="break-all font-mono text-xs">{task.worktree ?? "none"}</dd></div>
               <div><dt className="text-zinc-500">PR</dt><dd className="break-all">{task.pr ?? "none"}</dd></div>
             </dl>
+            <div className="mt-4 border-t border-zinc-800 pt-4">
+              <RunTaskButton taskId={task.id} runtimes={runtimes} />
+            </div>
           </section>
 
           <section className="rounded-md border border-zinc-800 p-4">

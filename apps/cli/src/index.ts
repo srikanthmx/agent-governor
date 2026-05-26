@@ -304,12 +304,18 @@ bot.command("start").description("Start Telegram bot").action(async () => {
   await execa("pnpm", ["--filter", "@agent-governor/bot", "start"], { stdio: "inherit" });
 });
 
-program.command("run-task <taskId>").description("Advance a task through the next allowed workflow stage").action(async (taskId) => {
-  const { config, db } = dbForCwd();
-  const task = await new WorkflowEngine({ db, config }).advance(Number(String(taskId).replace(/^TASK-/i, "")));
-  console.log(`TASK-${task.id} ${task.status} ${task.current_stage ?? ""}`.trim());
-  db.close();
-});
+program
+  .command("run-task <taskId>")
+  .description("Advance a task through the next allowed workflow stage")
+  .option("--runtime <id>", "Prefer a configured runtime adapter for this run")
+  .action(async (taskId, options) => {
+    const { config, db } = dbForCwd();
+    const task = await new WorkflowEngine({ db, config }).advance(Number(String(taskId).replace(/^TASK-/i, "")), "cli", {
+      runtimeId: options.runtime
+    });
+    console.log(`TASK-${task.id} ${task.status} ${task.current_stage ?? ""}`.trim());
+    db.close();
+  });
 
 if (!existsSync(resolve(projectRoot(process.cwd()), "config"))) {
   writeFileSync(resolve(projectRoot(process.cwd()), ".agent-governor-warning"), "Run from the Agent Governor project root.\n");

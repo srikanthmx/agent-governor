@@ -6,7 +6,7 @@ import { join } from "node:path";
 export interface DashboardData {
   tasks: Array<{ id: number; title: string; description: string; repo: string; status: string; stage: string | null; runtime: string; pr: string | null }>;
   approvals: Array<{ taskId: number; stage: string; status: string }>;
-  runtimes: Array<{ id: string; label: string; type: string; enabled: boolean; command: string | null; capabilities: string[]; preferredRoles: string[] }>;
+  runtimes: Array<{ id: string; label: string; type: string; enabled: boolean; command: string | null; args: string[]; capabilities: string[]; preferredRoles: string[] }>;
   roles: Array<{ id: string; preferred: string[]; fallback: string[] }>;
   repos: Array<{ id: number; name: string; github: string }>;
   githubRepos: Array<{ id: number; nameWithOwner: string; description: string; visibility: string; defaultBranch: string; url: string; updatedAt: string }>;
@@ -26,6 +26,7 @@ export interface TaskDetailData {
   } | null;
   artifacts: Array<{ name: string; content: string }>;
   approvals: Array<{ stage: string; status: string; approvedBy: string | null; comment: string | null; createdAt: string }>;
+  runtimes: DashboardData["runtimes"];
 }
 
 export function getDashboardData(): DashboardData {
@@ -152,6 +153,7 @@ export function getDashboardData(): DashboardData {
         type: agent.type,
         enabled: agent.enabled,
         command: agent.command ?? null,
+        args: agent.args ?? [],
         capabilities: agent.capabilities,
         preferredRoles: agent.preferredRoles ?? []
       })),
@@ -217,7 +219,21 @@ export function getTaskDetail(taskId: number): TaskDetailData {
       }
     }
 
-    return { task, artifacts, approvals };
+    return {
+      task,
+      artifacts,
+      approvals,
+      runtimes: config.agents.agents.map((agent) => ({
+        id: agent.id,
+        label: agent.label,
+        type: agent.type,
+        enabled: agent.enabled,
+        command: agent.command ?? null,
+        args: agent.args ?? [],
+        capabilities: agent.capabilities,
+        preferredRoles: agent.preferredRoles ?? []
+      }))
+    };
   } finally {
     db.close();
   }

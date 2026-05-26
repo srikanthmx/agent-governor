@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CreateTaskPanel, RepoWorkbench } from "./dashboard-actions";
+import { CreateTaskPanel, RepoWorkbench, RunTaskButton } from "./dashboard-actions";
 import { getDashboardData } from "./data";
 import { OrchestrationCanvas } from "./orchestration-canvas";
 import { ThemeSwitcher } from "./theme-switcher";
@@ -44,9 +44,10 @@ const buckets = ["Intake", "Approval", "Execution", "PR"];
 
 const commands = [
   { label: "/idea", detail: "Capture work", key: "01" },
-  { label: "/approve", detail: "Release gate", key: "02" },
-  { label: "/pr", detail: "Open branch PR", key: "03" },
-  { label: "/merge", detail: "Owner only", key: "04" }
+  { label: "/run", detail: "Execute next stage", key: "02" },
+  { label: "/approve", detail: "Release gate", key: "03" },
+  { label: "/pr", detail: "Open branch PR", key: "04" },
+  { label: "/merge", detail: "Owner only", key: "05" }
 ];
 
 export default function Page() {
@@ -138,6 +139,24 @@ export default function Page() {
                           <div className="flex items-center justify-between rounded-md border border-[#343727] bg-[#090a07] px-3 py-2 text-sm" key={gate}>
                             <span>{gate}</span>
                             <span className={index < 2 ? "font-mono text-xs uppercase text-[#b8ff65]" : "font-mono text-xs uppercase text-[#ffca58]"}>{index < 2 ? "active" : "armed"}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+
+                    <section className="ag-panel rounded-md border p-4">
+                      <div className="ag-kicker text-xs uppercase">[ run path ]</div>
+                      <h2 className="mt-1 text-sm ag-section-title">How prompts execute</h2>
+                      <div className="mt-4 space-y-2 text-sm text-[var(--ag-soft)]">
+                        {[
+                          "Pick repo and create a task from Web or Telegram.",
+                          "Choose Codex, Claude, Gemini, OpenCode, or Shell as the preferred runtime.",
+                          "Run next stage: requirements, design, then implementation in a git worktree.",
+                          "Owner approvals gate implementation, PR open, and merge."
+                        ].map((item, index) => (
+                          <div className="grid grid-cols-[24px_1fr] gap-2" key={item}>
+                            <span className="font-mono text-xs text-[var(--ag-muted)]">{index + 1}</span>
+                            <span>{item}</span>
                           </div>
                         ))}
                       </div>
@@ -235,20 +254,25 @@ export default function Page() {
               </div>
 
               <aside className="space-y-4">
-                <CreateTaskPanel repos={repos} />
+                <CreateTaskPanel repos={repos} runtimes={runtimes} />
 
                 <section className="ag-panel rounded-md border p-4">
                   <div className="ag-kicker text-xs uppercase">[ queue ]</div>
                   <h2 className="mt-1 text-sm ag-section-title">Next Actions</h2>
                   <div className="mt-3 space-y-2">
                     {actionTasks.slice(0, 5).map((task) => (
-                      <Link className="block rounded-md border border-[#343727] bg-[#090a07] px-3 py-2 hover:border-[#ffca58]/60" href={`/tasks/${task.id}`} key={task.id}>
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="font-mono text-xs text-[#d6cfaa]">TASK-{task.id}</span>
-                          <span className="text-xs text-[#ffca58]">{nextAction(task.status)}</span>
+                      <div className="rounded-md border border-[var(--ag-line)] bg-[var(--ag-surface)] p-3" key={task.id}>
+                        <Link className="block" href={`/tasks/${task.id}`}>
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="font-mono text-xs text-[var(--ag-soft)]">TASK-{task.id}</span>
+                            <span className="text-xs text-[var(--ag-amber)]">{nextAction(task.status)}</span>
+                          </div>
+                          <div className="mt-1 truncate text-sm font-semibold text-[var(--ag-heading)]">{task.title}</div>
+                        </Link>
+                        <div className="mt-3">
+                          <RunTaskButton taskId={task.id} runtimes={runtimes} />
                         </div>
-                        <div className="mt-1 truncate text-sm font-semibold text-[#f8f1d0]">{task.title}</div>
-                      </Link>
+                      </div>
                     ))}
                   </div>
                 </section>
@@ -308,7 +332,7 @@ function AgentDirectory({
   runtimes,
   roles
 }: {
-  runtimes: Array<{ id: string; label: string; type: string; enabled: boolean; command: string | null; capabilities: string[]; preferredRoles: string[] }>;
+  runtimes: Array<{ id: string; label: string; type: string; enabled: boolean; command: string | null; args: string[]; capabilities: string[]; preferredRoles: string[] }>;
   roles: Array<{ id: string; preferred: string[]; fallback: string[] }>;
 }) {
   return (
@@ -333,7 +357,7 @@ function AgentDirectory({
               </span>
             </div>
             <div className="mt-4 min-h-10 text-xs text-[#9b9b89]">
-              {runtime.command ? <span className="font-mono text-[#d6cfaa]">{runtime.command}</span> : "placeholder adapter"}
+              {runtime.command ? <span className="font-mono text-[var(--ag-soft)]">{[runtime.command, ...runtime.args].join(" ")}</span> : "placeholder adapter"}
             </div>
             <div className="mt-4 flex flex-wrap gap-1.5">
               {runtime.capabilities.map((capability) => (

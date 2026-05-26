@@ -9,6 +9,8 @@ export async function POST(request: Request) {
     repo?: string;
     title?: string;
     description?: string;
+    runtimeId?: string;
+    run?: boolean;
   };
   if (!body.repo || !body.title || !body.description) {
     return NextResponse.json({ ok: false, error: "repo, title, and description are required" }, { status: 400 });
@@ -30,13 +32,29 @@ export async function POST(request: Request) {
   });
   const output = [result.stdout, result.stderr].filter((value): value is string => Boolean(value)).join("\n");
   const taskId = output.match(/Created\s+(TASK-\d+)/i)?.[1];
+  let runOutput = "";
+  let runOk = true;
+  if (body.run && taskId) {
+    const runArgs = ["agent", "run-task", taskId.replace(/^TASK-/i, "")];
+    if (body.runtimeId) {
+      runArgs.push("--runtime", body.runtimeId);
+    }
+    const runResult = await execa("pnpm", runArgs, {
+      cwd: projectRoot(process.cwd()),
+      reject: false
+    });
+    runOutput = [runResult.stdout, runResult.stderr].filter((value): value is string => Boolean(value)).join("\n");
+    runOk = runResult.exitCode === 0;
+  }
+
   return NextResponse.json(
     {
-      ok: result.exitCode === 0,
+      ok: result.exitCode === 0 && runOk,
       taskId,
       output,
-      error: result.exitCode === 0 ? undefined : output || `create task exited with ${result.exitCode}`
+      runOutput,
+      error: result.exitCode === 0 && runOk ? undefined : runOutput || output || `create task exited with ${result.exitCode}`
     },
-    { status: result.exitCode === 0 ? 200 : 500 }
+    { status: result.exitCode === 0 && runOk ? 200 : 500 }
   );
 }
