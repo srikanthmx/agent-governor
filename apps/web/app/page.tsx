@@ -1,5 +1,6 @@
 import { getDashboardData } from "./data";
 import Link from "next/link";
+import { CreateTaskPanel, GitHubRepoActionsTable } from "./dashboard-actions";
 
 export default function Page() {
   const { tasks, approvals, runtimes, repos, githubRepos } = getDashboardData();
@@ -59,43 +60,18 @@ export default function Page() {
             </table>
           </div>
 
-          <div className="mt-4 overflow-hidden rounded-md border border-zinc-800">
-            <div className="border-b border-zinc-800 px-3 py-2">
-              <h2 className="text-sm font-semibold uppercase text-zinc-400">GitHub Repos</h2>
+          {githubRepos.length === 0 ? (
+            <div className="mt-4 rounded-md border border-zinc-800 p-4 text-sm text-zinc-500">
+              <Link className="underline decoration-zinc-700 underline-offset-4" href="/settings/github">Authenticate GitHub and sync repos</Link>
             </div>
-            <table className="w-full border-collapse text-sm">
-              <thead className="bg-zinc-900 text-left text-xs uppercase text-zinc-500">
-                <tr>
-                  <th className="px-3 py-2">Repo</th>
-                  <th className="px-3 py-2">Visibility</th>
-                  <th className="px-3 py-2">Branch</th>
-                  <th className="px-3 py-2">Description</th>
-                </tr>
-              </thead>
-              <tbody>
-                {githubRepos.map((repo) => (
-                  <tr key={repo.id} className="border-t border-zinc-800">
-                    <td className="px-3 py-2">
-                      <a className="text-zinc-100 underline decoration-zinc-700 underline-offset-4" href={repo.url}>{repo.nameWithOwner}</a>
-                    </td>
-                    <td className="px-3 py-2">{repo.visibility}</td>
-                    <td className="px-3 py-2 font-mono text-xs">{repo.defaultBranch}</td>
-                    <td className="max-w-[360px] truncate px-3 py-2 text-zinc-500">{repo.description || "none"}</td>
-                  </tr>
-                ))}
-                {githubRepos.length === 0 ? (
-                  <tr className="border-t border-zinc-800">
-                    <td className="px-3 py-6 text-zinc-500" colSpan={4}>
-                      <Link className="underline decoration-zinc-700 underline-offset-4" href="/settings/github">Authenticate GitHub and sync repos</Link>
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
+          ) : (
+            <GitHubRepoActionsTable repos={githubRepos} />
+          )}
         </section>
 
         <aside className="space-y-4">
+          <CreateTaskPanel repos={repos} />
+
           <section className="rounded-md border border-zinc-800 p-4">
             <h2 className="mb-3 text-sm font-semibold uppercase text-zinc-400">Approvals</h2>
             <div className="space-y-2">

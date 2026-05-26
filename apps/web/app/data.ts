@@ -116,11 +116,34 @@ export function getDashboardData(): DashboardData {
     `).all() as DashboardData["githubRepos"];
 
     return {
-      tasks: tasks.map((task) => ({ ...task, runtime: config.agents.agents.find((agent) => agent.enabled)?.id ?? "none" })),
-      approvals,
+      tasks: tasks.map((task) => ({
+        id: task.id,
+        repo: task.repo,
+        status: task.status,
+        stage: task.stage,
+        pr: task.pr,
+        runtime: config.agents.agents.find((agent) => agent.enabled)?.id ?? "none"
+      })),
+      approvals: approvals.map((approval) => ({
+        taskId: approval.taskId,
+        stage: approval.stage,
+        status: approval.status
+      })),
       runtimes: config.agents.agents.map((agent) => ({ id: agent.id, type: agent.type, enabled: agent.enabled })),
-      repos,
-      githubRepos
+      repos: repos.map((repo) => ({
+        id: repo.id,
+        name: repo.name,
+        github: repo.github
+      })),
+      githubRepos: githubRepos.map((repo) => ({
+        id: repo.id,
+        nameWithOwner: repo.nameWithOwner,
+        description: repo.description,
+        visibility: repo.visibility,
+        defaultBranch: repo.defaultBranch,
+        url: repo.url,
+        updatedAt: repo.updatedAt
+      }))
     };
   } finally {
     db.close();
