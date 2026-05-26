@@ -12,14 +12,26 @@ interface AuthState {
   error?: string;
 }
 
+async function readJsonResponse(response: Response) {
+  const text = await response.text();
+  if (!text) {
+    return { ok: false, error: `Empty response from ${response.url}` };
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { ok: false, error: text };
+  }
+}
+
 export function GitHubAuthPanel() {
   const [auth, setAuth] = useState<AuthState>({});
   const [syncResult, setSyncResult] = useState<string>("");
   const [busy, setBusy] = useState(false);
 
   async function checkStatus() {
-    const response = await fetch("/api/github/status", { cache: "no-store" });
-    setAuth(await response.json());
+      const response = await fetch("/api/github/status", { cache: "no-store" });
+    setAuth(await readJsonResponse(response));
   }
 
   async function startLogin() {
@@ -27,7 +39,7 @@ export function GitHubAuthPanel() {
     setSyncResult("");
     try {
       const response = await fetch("/api/github/auth", { method: "POST" });
-      setAuth(await response.json());
+      setAuth(await readJsonResponse(response));
     } finally {
       setBusy(false);
     }
@@ -35,7 +47,7 @@ export function GitHubAuthPanel() {
 
   async function refreshLogin() {
     const response = await fetch("/api/github/auth", { cache: "no-store" });
-    const login = await response.json();
+    const login = await readJsonResponse(response);
     setAuth((current) => ({ ...current, ...login }));
     if (login.done) {
       await checkStatus();
@@ -50,8 +62,8 @@ export function GitHubAuthPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ limit: 100 })
       });
-      const result = await response.json();
-      setSyncResult(result.ok ? `Synced ${result.count} repositories` : result.error);
+      const result = await readJsonResponse(response);
+      setSyncResult(result.ok ? `Synced ${result.count} repositories` : result.error ?? "Sync failed");
     } finally {
       setBusy(false);
     }
