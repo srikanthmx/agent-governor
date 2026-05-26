@@ -4,7 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";
 
 export interface DashboardData {
-  tasks: Array<{ id: number; repo: string; status: string; stage: string | null; runtime: string; pr: string | null }>;
+  tasks: Array<{ id: number; title: string; description: string; repo: string; status: string; stage: string | null; runtime: string; pr: string | null }>;
   approvals: Array<{ taskId: number; stage: string; status: string }>;
   runtimes: Array<{ id: string; type: string; enabled: boolean }>;
   repos: Array<{ id: number; name: string; github: string }>;
@@ -81,12 +81,26 @@ export function getDashboardData(): DashboardData {
   `);
   try {
     const tasks = db.prepare(`
-      SELECT tasks.id, repos.name AS repo, tasks.status, tasks.current_stage AS stage, tasks.pr_url AS pr
+      SELECT tasks.id,
+             tasks.title,
+             tasks.description,
+             repos.name AS repo,
+             tasks.status,
+             tasks.current_stage AS stage,
+             tasks.pr_url AS pr
       FROM tasks
       JOIN repos ON repos.id = tasks.repo_id
       ORDER BY tasks.updated_at DESC
       LIMIT 50
-    `).all() as Array<{ id: number; repo: string; status: string; stage: string | null; pr: string | null }>;
+    `).all() as Array<{
+      id: number;
+      title: string;
+      description: string;
+      repo: string;
+      status: string;
+      stage: string | null;
+      pr: string | null;
+    }>;
 
     const approvals = db.prepare(`
       SELECT task_id AS taskId, stage, status
@@ -118,6 +132,8 @@ export function getDashboardData(): DashboardData {
     return {
       tasks: tasks.map((task) => ({
         id: task.id,
+        title: task.title,
+        description: task.description,
         repo: task.repo,
         status: task.status,
         stage: task.stage,

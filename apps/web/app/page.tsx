@@ -9,6 +9,19 @@ function statusTone(status: string) {
   return "border-zinc-700 bg-zinc-900 text-zinc-200";
 }
 
+function nextAction(status: string) {
+  if (status === "NEW") return "Run requirements";
+  if (status === "WAITING_REQUIREMENTS_APPROVAL") return "Approve requirements";
+  if (status === "WAITING_DESIGN_APPROVAL") return "Approve design";
+  if (status === "WAITING_PR_APPROVAL") return "Approve PR";
+  if (status === "PR_OPENED") return "Approve merge";
+  if (status === "FIXING") return "Review requested changes";
+  if (status === "FAILED") return "Inspect logs";
+  return "Inspect task";
+}
+
+const workflowStages = ["Idea", "Requirements", "Design", "Implement", "PR", "Merge"];
+
 export default function Page() {
   const { tasks, approvals, runtimes, repos, githubRepos } = getDashboardData();
   const pendingApprovals = tasks.filter((task) => task.status.includes("WAITING")).length;
@@ -30,21 +43,42 @@ export default function Page() {
 
       <div className="mx-auto max-w-[1500px] px-5 py-5">
         <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+          <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
             <div className="text-xs uppercase text-zinc-500">Managed Repos</div>
             <div className="mt-2 text-2xl font-semibold">{repos.length}</div>
           </div>
-          <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+          <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
             <div className="text-xs uppercase text-zinc-500">GitHub Synced</div>
             <div className="mt-2 text-2xl font-semibold">{githubRepos.length}</div>
           </div>
-          <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+          <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
             <div className="text-xs uppercase text-zinc-500">Open Tasks</div>
             <div className="mt-2 text-2xl font-semibold">{tasks.length}</div>
           </div>
-          <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+          <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
             <div className="text-xs uppercase text-zinc-500">Approval Gates</div>
             <div className="mt-2 text-2xl font-semibold">{pendingApprovals}</div>
+          </div>
+        </section>
+
+        <section className="mt-4 rounded-md border border-zinc-800 bg-zinc-950/50 p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold uppercase text-zinc-300">Governed Delivery Flow</h2>
+              <p className="mt-1 text-xs text-zinc-500">Every task moves through owner-gated artifacts before PR and merge.</p>
+            </div>
+            <div className="font-mono text-xs text-zinc-500">local-first / worktree-isolated / PR-first</div>
+          </div>
+          <div className="grid gap-2 md:grid-cols-6">
+            {workflowStages.map((stage, index) => (
+              <div className="rounded-md border border-zinc-800 bg-black px-3 py-3" key={stage}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs uppercase text-zinc-500">0{index + 1}</span>
+                  <span className={index === 0 ? "text-emerald-400" : index < 4 ? "text-amber-300" : "text-zinc-500"}>{index < 4 ? "active" : "gated"}</span>
+                </div>
+                <div className="mt-2 text-sm font-medium">{stage}</div>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -59,13 +93,16 @@ export default function Page() {
                   <p className="mt-1 text-xs text-zinc-500">Click a task to inspect requirements, design, logs, and approvals.</p>
                 </div>
               </div>
-              <table className="w-full border-collapse text-sm">
+              <div className="overflow-x-auto">
+              <table className="w-full min-w-[860px] border-collapse text-sm">
                 <thead className="bg-zinc-900 text-left text-xs uppercase text-zinc-500">
                   <tr>
                     <th className="px-3 py-2">Task</th>
+                    <th className="px-3 py-2">Title</th>
                     <th className="px-3 py-2">Repo</th>
                     <th className="px-3 py-2">Status</th>
                     <th className="px-3 py-2">Stage</th>
+                    <th className="px-3 py-2">Next</th>
                     <th className="px-3 py-2">Runtime</th>
                     <th className="px-3 py-2">PR</th>
                   </tr>
@@ -76,28 +113,50 @@ export default function Page() {
                       <td className="px-3 py-3 font-mono text-xs">
                         <Link className="text-zinc-100 underline decoration-zinc-700 underline-offset-4" href={`/tasks/${task.id}`}>TASK-{task.id}</Link>
                       </td>
+                      <td className="max-w-[260px] px-3 py-3">
+                        <div className="truncate font-medium">{task.title}</div>
+                        <div className="mt-1 truncate text-xs text-zinc-500">{task.description}</div>
+                      </td>
                       <td className="px-3 py-3">{task.repo}</td>
                       <td className="px-3 py-3">
                         <span className={`rounded border px-2 py-1 text-xs ${statusTone(task.status)}`}>{task.status}</span>
                       </td>
                       <td className="px-3 py-3">{task.stage ?? "none"}</td>
+                      <td className="px-3 py-3 text-zinc-300">{nextAction(task.status)}</td>
                       <td className="px-3 py-3">{task.runtime}</td>
                       <td className="px-3 py-3 text-zinc-500">{task.pr || "none"}</td>
                     </tr>
                   ))}
                   {tasks.length === 0 ? (
                     <tr className="border-t border-zinc-800">
-                      <td className="px-3 py-8 text-zinc-500" colSpan={6}>Create a task from a managed repo to start the governed workflow.</td>
+                      <td className="px-3 py-8 text-zinc-500" colSpan={8}>Create a task from a managed repo to start the governed workflow.</td>
                     </tr>
                   ) : null}
                 </tbody>
               </table>
+              </div>
             </section>
 
             <RepoWorkbench githubRepos={githubRepos} managedRepos={repos} />
           </section>
 
           <aside className="space-y-4">
+            <section className="rounded-md border border-zinc-800 bg-zinc-950/40 p-4">
+              <h2 className="text-sm font-semibold uppercase text-zinc-300">Action Center</h2>
+              <div className="mt-3 space-y-2">
+                {tasks.slice(0, 4).map((task) => (
+                  <Link className="block rounded-md border border-zinc-800 bg-black px-3 py-2 hover:bg-zinc-900" href={`/tasks/${task.id}`} key={task.id}>
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="font-mono text-xs">TASK-{task.id}</span>
+                      <span className="text-xs text-zinc-400">{nextAction(task.status)}</span>
+                    </div>
+                    <div className="mt-1 truncate text-xs text-zinc-500">{task.title}</div>
+                  </Link>
+                ))}
+                {tasks.length === 0 ? <p className="text-sm text-zinc-500">No active actions yet.</p> : null}
+              </div>
+            </section>
+
             <section className="rounded-md border border-zinc-800 bg-zinc-950/40 p-4">
               <h2 className="text-sm font-semibold uppercase text-zinc-300">Runtime Router</h2>
               <p className="mt-1 text-xs text-zinc-500">{enabledRuntimes} enabled. Disabled runtimes are placeholders until enabled in `config/agents.yml`.</p>
