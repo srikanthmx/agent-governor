@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CreateTaskPanel, RepoWorkbench } from "./dashboard-actions";
 import { getDashboardData } from "./data";
+import { OrchestrationCanvas } from "./orchestration-canvas";
 
 function statusTone(status: string) {
   if (status.includes("WAITING")) return "border-amber-500/30 bg-amber-500/10 text-amber-100";
@@ -40,10 +41,20 @@ const flow = [
 
 const buckets = ["Intake", "Approval", "Execution", "PR"];
 
+const commands = [
+  { label: "/idea", detail: "Capture work", key: "01" },
+  { label: "/approve", detail: "Release gate", key: "02" },
+  { label: "/pr", detail: "Open branch PR", key: "03" },
+  { label: "/merge", detail: "Owner only", key: "04" }
+];
+
 export default function Page() {
   const { tasks, approvals, runtimes, repos, githubRepos } = getDashboardData();
   const pendingApprovals = tasks.filter((task) => task.status.includes("WAITING")).length;
   const enabledRuntimes = runtimes.filter((runtime) => runtime.enabled).length;
+  const connectedGithub = githubRepos.length;
+  const blockedTasks = tasks.filter((task) => ["FAILED", "REJECTED"].includes(task.status)).length;
+  const prTasks = tasks.filter((task) => task.pr || task.status.includes("PR") || task.status.includes("MERGE")).length;
   const actionTasks = [...tasks].sort((a, b) => {
     const aWaiting = a.status.includes("WAITING") ? 0 : 1;
     const bWaiting = b.status.includes("WAITING") ? 0 : 1;
@@ -86,28 +97,52 @@ export default function Page() {
           </header>
 
           <div className="px-5 py-5">
-            <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-              <div className="relative overflow-hidden rounded-md border border-zinc-800 bg-black p-5">
-                <div className="absolute inset-0 opacity-20 [background-image:linear-gradient(#27272a_1px,transparent_1px),linear-gradient(90deg,#27272a_1px,transparent_1px)] [background-size:28px_28px]" />
-                <div className="relative">
-                  <div className="font-mono text-xs uppercase tracking-[0.24em] text-emerald-300">v0.1 / owner gated / pr first</div>
-                  <div className="mt-6 max-w-3xl text-4xl font-semibold leading-tight text-zinc-50 md:text-5xl">
-                    Govern agent work across repos without becoming the agent.
-                  </div>
-                  <div className="mt-6 grid gap-3 sm:grid-cols-4">
-                    <Metric label="Repos" value={repos.length} accent="emerald" />
-                    <Metric label="GitHub" value={githubRepos.length} accent="sky" />
-                    <Metric label="Tasks" value={tasks.length} accent="violet" />
-                    <Metric label="Gates" value={pendingApprovals} accent="amber" />
-                  </div>
-                </div>
-              </div>
-
-              <OrchestrationMap tasks={tasks.length} repos={repos.length} runtimes={enabledRuntimes} approvals={pendingApprovals} />
+            <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+              <Metric label="Managed repos" value={repos.length} detail={`${connectedGithub} synced from GitHub`} accent="emerald" />
+              <Metric label="Governed tasks" value={tasks.length} detail={`${blockedTasks} blocked / failed`} accent="violet" />
+              <Metric label="Owner gates" value={pendingApprovals} detail="requirements, design, PR, merge" accent="amber" />
+              <Metric label="Runtime mesh" value={enabledRuntimes} detail={`${runtimes.length} configured adapters`} accent="sky" />
             </section>
 
             <section className="mt-4 grid gap-4 xl:grid-cols-[1fr_420px]">
               <div className="space-y-4">
+                <section className="grid gap-4 2xl:grid-cols-[1fr_320px]">
+                  <OrchestrationCanvas tasks={tasks} repos={repos} runtimes={runtimes} approvals={approvals} />
+                  <div className="space-y-4">
+                    <section className="rounded-md border border-zinc-800 bg-[#050506]">
+                      <div className="border-b border-zinc-800 px-4 py-3">
+                        <div className="font-mono text-xs uppercase tracking-[0.2em] text-zinc-500">[ command layer ]</div>
+                        <h2 className="mt-1 text-sm font-semibold uppercase text-zinc-300">Telegram-first Controls</h2>
+                      </div>
+                      <div className="grid gap-px bg-zinc-800 p-px">
+                        {commands.map((command) => (
+                          <div className="grid grid-cols-[42px_1fr_auto] items-center gap-3 bg-black px-3 py-3" key={command.label}>
+                            <span className="font-mono text-xs text-zinc-600">{command.key}</span>
+                            <div>
+                              <div className="font-mono text-sm text-zinc-100">{command.label}</div>
+                              <div className="mt-1 text-xs text-zinc-500">{command.detail}</div>
+                            </div>
+                            <span className="h-2 w-2 rounded-full bg-emerald-300" />
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+
+                    <section className="rounded-md border border-zinc-800 bg-zinc-950/50 p-4">
+                      <div className="font-mono text-xs uppercase tracking-[0.2em] text-zinc-500">[ safety model ]</div>
+                      <h2 className="mt-1 text-sm font-semibold uppercase text-zinc-300">Owner Gates</h2>
+                      <div className="mt-4 grid gap-2">
+                        {["Requirements approval", "Design approval", "PR approval", "Merge approval"].map((gate, index) => (
+                          <div className="flex items-center justify-between rounded-md border border-zinc-800 bg-black px-3 py-2 text-sm" key={gate}>
+                            <span>{gate}</span>
+                            <span className={index < 2 ? "text-emerald-300" : "text-amber-300"}>{index < 2 ? "active" : "armed"}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  </div>
+                </section>
+
                 <section className="rounded-md border border-zinc-800 bg-zinc-950/50">
                   <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 px-4 py-3">
                     <div>
@@ -229,6 +264,22 @@ export default function Page() {
                 </section>
 
                 <section className="rounded-md border border-zinc-800 bg-zinc-950/50 p-4">
+                  <div className="font-mono text-xs uppercase tracking-[0.2em] text-zinc-500">[ github ]</div>
+                  <h2 className="mt-1 text-sm font-semibold uppercase text-zinc-300">PR Channel</h2>
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <div className="rounded-md border border-zinc-800 bg-black px-3 py-2">
+                      <div className="font-mono text-[10px] uppercase text-zinc-500">Synced repos</div>
+                      <div className="mt-1 text-lg font-semibold">{connectedGithub}</div>
+                    </div>
+                    <div className="rounded-md border border-zinc-800 bg-black px-3 py-2">
+                      <div className="font-mono text-[10px] uppercase text-zinc-500">PR tasks</div>
+                      <div className="mt-1 text-lg font-semibold">{prTasks}</div>
+                    </div>
+                  </div>
+                  <Link className="mt-3 block h-9 rounded-md border border-zinc-700 px-3 py-2 text-center text-sm text-zinc-200 hover:bg-zinc-900" href="/settings/github">Manage GitHub Auth</Link>
+                </section>
+
+                <section className="rounded-md border border-zinc-800 bg-zinc-950/50 p-4">
                   <div className="font-mono text-xs uppercase tracking-[0.2em] text-zinc-500">[ registry ]</div>
                   <h2 className="mt-1 text-sm font-semibold uppercase text-zinc-300">Managed Repos</h2>
                   <div className="mt-3 space-y-2">
@@ -249,7 +300,7 @@ export default function Page() {
   );
 }
 
-function Metric({ label, value, accent }: { label: string; value: number; accent: "emerald" | "sky" | "violet" | "amber" }) {
+function Metric({ label, value, detail, accent }: { label: string; value: number; detail: string; accent: "emerald" | "sky" | "violet" | "amber" }) {
   const tones = {
     emerald: "border-l-emerald-400",
     sky: "border-l-sky-400",
@@ -257,58 +308,10 @@ function Metric({ label, value, accent }: { label: string; value: number; accent
     amber: "border-l-amber-300"
   };
   return (
-    <div className={`rounded-md border border-l-4 border-zinc-800 ${tones[accent]} bg-zinc-950/80 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]`}>
+    <div className={`rounded-md border border-l-4 border-zinc-800 ${tones[accent]} bg-zinc-950/80 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:p-4`}>
       <div className="text-xs uppercase text-zinc-500">{label}</div>
-      <div className="mt-2 text-3xl font-semibold">{value}</div>
-    </div>
-  );
-}
-
-function OrchestrationMap({ tasks, repos, runtimes, approvals }: { tasks: number; repos: number; runtimes: number; approvals: number }) {
-  const nodes = [
-    { label: "Telegram", x: "8%", y: "18%", tone: "border-sky-400/50 text-sky-200" },
-    { label: "Web UI", x: "10%", y: "68%", tone: "border-violet-400/50 text-violet-200" },
-    { label: "Governor", x: "42%", y: "42%", tone: "border-emerald-400/60 text-emerald-100" },
-    { label: "Runtime", x: "72%", y: "18%", tone: "border-amber-300/50 text-amber-100" },
-    { label: "GitHub PR", x: "76%", y: "70%", tone: "border-zinc-500 text-zinc-100" }
-  ];
-  return (
-    <div className="relative min-h-[360px] overflow-hidden rounded-md border border-zinc-800 bg-[#050506] p-5">
-      <div className="absolute inset-0 opacity-30 [background-image:radial-gradient(#3f3f46_1px,transparent_1px)] [background-size:18px_18px]" />
-      <svg className="absolute inset-0 h-full w-full opacity-60" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-        <path d="M18 24 C30 24 31 42 42 45" stroke="#34d399" strokeWidth="0.35" fill="none" />
-        <path d="M20 72 C32 70 31 52 42 45" stroke="#a78bfa" strokeWidth="0.35" fill="none" />
-        <path d="M56 44 C65 34 64 22 74 22" stroke="#fcd34d" strokeWidth="0.35" fill="none" />
-        <path d="M56 48 C66 58 66 70 78 74" stroke="#a1a1aa" strokeWidth="0.35" fill="none" />
-      </svg>
-      <div className="relative z-[1]">
-        <div className="font-mono text-xs uppercase tracking-[0.22em] text-zinc-500">[ orchestration map ]</div>
-        <div className="mt-1 text-sm text-zinc-300">Live local control loop</div>
-      </div>
-      {nodes.map((node) => (
-        <div
-          className={`absolute z-[1] rounded-md border bg-black/90 px-3 py-2 text-sm shadow-[0_0_30px_rgba(0,0,0,0.5)] ${node.tone}`}
-          key={node.label}
-          style={{ left: node.x, top: node.y }}
-        >
-          {node.label}
-        </div>
-      ))}
-      <div className="absolute bottom-4 left-4 right-4 z-[1] grid grid-cols-4 gap-2">
-        <MiniStat label="repos" value={repos} />
-        <MiniStat label="tasks" value={tasks} />
-        <MiniStat label="runtimes" value={runtimes} />
-        <MiniStat label="gates" value={approvals} />
-      </div>
-    </div>
-  );
-}
-
-function MiniStat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-md border border-zinc-800 bg-black/80 px-3 py-2">
-      <div className="font-mono text-[10px] uppercase text-zinc-500">{label}</div>
-      <div className="mt-1 text-lg font-semibold">{value}</div>
+      <div className="mt-2 text-2xl font-semibold sm:text-3xl">{value}</div>
+      <div className="mt-2 truncate text-xs text-zinc-500">{detail}</div>
     </div>
   );
 }
