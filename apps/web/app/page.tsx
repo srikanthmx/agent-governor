@@ -2,13 +2,14 @@ import Link from "next/link";
 import { CreateTaskPanel, RepoWorkbench } from "./dashboard-actions";
 import { getDashboardData } from "./data";
 import { OrchestrationCanvas } from "./orchestration-canvas";
+import { ThemeSwitcher } from "./theme-switcher";
 
 function statusTone(status: string) {
-  if (status.includes("WAITING")) return "border-[#ffca58]/45 bg-[#ffca58]/12 text-[#ffe1a0]";
-  if (status === "FAILED" || status === "REJECTED") return "border-[#ff715b]/45 bg-[#ff715b]/12 text-[#ffb4a8]";
-  if (status === "MERGED" || status === "PR_OPENED") return "border-[#b8ff65]/45 bg-[#b8ff65]/12 text-[#d6ff9f]";
-  if (status === "FIXING") return "border-[#6bdcff]/45 bg-[#6bdcff]/12 text-[#b5edff]";
-  return "border-[#596044] bg-[#202316] text-[#f4f0df]";
+  if (status.includes("WAITING")) return "border-[var(--ag-amber)] bg-[var(--ag-panel-2)] text-[var(--ag-amber)]";
+  if (status === "FAILED" || status === "REJECTED") return "border-[var(--ag-coral)] bg-[var(--ag-panel-2)] text-[var(--ag-coral)]";
+  if (status === "MERGED" || status === "PR_OPENED") return "border-[var(--ag-green)] bg-[var(--ag-panel-2)] text-[var(--ag-green)]";
+  if (status === "FIXING") return "border-[var(--ag-cyan)] bg-[var(--ag-panel-2)] text-[var(--ag-cyan)]";
+  return "border-[var(--ag-line)] bg-[var(--ag-panel-2)] text-[var(--ag-soft)]";
 }
 
 function nextAction(status: string) {
@@ -64,34 +65,35 @@ export default function Page() {
   return (
     <main className="min-h-screen bg-[var(--ag-bg)] text-[var(--ag-text)]">
       <div className="grid min-h-screen lg:grid-cols-[260px_1fr]">
-        <aside className="hidden border-r border-[#343727] bg-[#0a0b08] lg:block">
-          <div className="border-b border-[#343727] px-5 py-5">
+        <aside className="hidden border-r border-[var(--ag-line)] bg-[var(--ag-surface)] lg:block">
+          <div className="border-b border-[var(--ag-line)] px-5 py-5">
             <div className="ag-kicker text-xs uppercase">agent-governor</div>
-            <div className="mt-3 text-2xl font-black uppercase leading-none tracking-wide text-[#f8f1d0]">Control Plane</div>
+            <div className="mt-3 text-lg font-semibold leading-none text-[var(--ag-heading)]">Control Plane</div>
           </div>
           <nav className="space-y-1 px-3 py-4 text-sm">
             {["01 Command", "02 Tasks", "03 Repos", "04 Approvals", "05 Runtimes"].map((item) => (
-              <div className={item.includes("Command") ? "rounded-md border border-[#b8ff65]/45 bg-[#b8ff65]/10 px-3 py-2 font-semibold text-[#d6ff9f]" : "rounded-md px-3 py-2 text-[#8c8d7b] hover:bg-[#151710]"} key={item}>
+              <div className={item.includes("Command") ? "rounded-md border border-[var(--ag-cyan)] bg-[var(--ag-panel)] px-3 py-2 font-medium text-[var(--ag-heading)]" : "rounded-md px-3 py-2 text-[var(--ag-muted)] hover:bg-[var(--ag-panel)]"} key={item}>
                 {item}
               </div>
             ))}
           </nav>
-          <div className="absolute bottom-0 hidden w-[259px] border-t border-[#343727] p-4 lg:block">
-            <div className="font-mono text-xs uppercase text-[#8c8d7b]">runtime mesh</div>
-            <div className="mt-2 rounded-md border border-[#b8ff65]/30 bg-[#b8ff65]/10 px-3 py-2 text-sm text-[#d6ff9f]">{enabledRuntimes}/{runtimes.length} online</div>
+          <div className="absolute bottom-0 hidden w-[259px] border-t border-[var(--ag-line)] p-4 lg:block">
+            <div className="font-mono text-xs uppercase text-[var(--ag-muted)]">runtime mesh</div>
+            <div className="mt-2 rounded-md border border-[var(--ag-green)] bg-[var(--ag-panel)] px-3 py-2 text-sm text-[var(--ag-green)]">{enabledRuntimes}/{runtimes.length} online</div>
           </div>
         </aside>
 
         <section className="min-w-0">
-          <header className="sticky top-0 z-10 border-b border-[#343727] bg-[#0c0d09]/95 backdrop-blur">
+          <header className="sticky top-0 z-10 border-b border-[var(--ag-line)] bg-[var(--ag-bg)]/95 backdrop-blur">
             <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
               <div>
                 <div className="ag-kicker text-xs uppercase">[ local agent operating console ]</div>
-                <h1 className="mt-1 text-3xl font-black uppercase leading-none tracking-wide text-[#f8f1d0]">Command Center</h1>
+                <h1 className="mt-1 text-xl font-semibold leading-none text-[var(--ag-heading)]">Command Center</h1>
               </div>
               <div className="flex items-center gap-2">
-                <div className="hidden h-9 w-72 items-center rounded-md border border-[#343727] bg-[#090a07] px-3 font-mono text-xs uppercase text-[#8c8d7b] md:flex">Search tasks, repos, runs</div>
-                <Link className="h-9 rounded-md border border-[#6bdcff]/45 bg-[#6bdcff]/10 px-3 py-2 text-sm font-semibold text-[#b5edff]" href="/settings/github">GitHub</Link>
+                <ThemeSwitcher />
+                <div className="hidden h-8 w-64 items-center rounded-md border border-[var(--ag-line)] bg-[var(--ag-surface)] px-3 text-xs text-[var(--ag-muted)] md:flex">Search tasks, repos, runs</div>
+                <Link className="h-8 rounded-md border border-[var(--ag-cyan)] bg-[var(--ag-panel)] px-3 py-1.5 text-sm font-medium text-[var(--ag-heading)]" href="/settings/github">GitHub</Link>
               </div>
             </div>
           </header>
@@ -106,15 +108,13 @@ export default function Page() {
 
             <section className="mt-4 grid gap-4 xl:grid-cols-[1fr_420px]">
               <div className="space-y-4">
-                <AgentDirectory runtimes={runtimes} roles={roles} />
-
                 <section className="grid gap-4 2xl:grid-cols-[1fr_320px]">
                   <OrchestrationCanvas tasks={tasks} repos={repos} runtimes={runtimes} approvals={approvals} />
                   <div className="space-y-4">
                     <section className="ag-panel rounded-md border">
                       <div className="border-b border-[#343727] px-4 py-3">
                         <div className="ag-kicker text-xs uppercase">[ command layer ]</div>
-                        <h2 className="mt-1 text-sm font-black uppercase text-[#f8f1d0]">Telegram-first Controls</h2>
+                        <h2 className="mt-1 text-sm ag-section-title">Telegram-first Controls</h2>
                       </div>
                       <div className="grid gap-px bg-[#343727] p-px">
                         {commands.map((command) => (
@@ -132,7 +132,7 @@ export default function Page() {
 
                     <section className="ag-panel rounded-md border p-4">
                       <div className="ag-kicker text-xs uppercase">[ safety model ]</div>
-                      <h2 className="mt-1 text-sm font-black uppercase text-[#f8f1d0]">Owner Gates</h2>
+                      <h2 className="mt-1 text-sm ag-section-title">Owner Gates</h2>
                       <div className="mt-4 grid gap-2">
                         {["Requirements approval", "Design approval", "PR approval", "Merge approval"].map((gate, index) => (
                           <div className="flex items-center justify-between rounded-md border border-[#343727] bg-[#090a07] px-3 py-2 text-sm" key={gate}>
@@ -145,11 +145,13 @@ export default function Page() {
                   </div>
                 </section>
 
+                <AgentDirectory runtimes={runtimes} roles={roles} />
+
                 <section className="ag-panel rounded-md border">
                   <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#343727] px-4 py-3">
                     <div>
                       <div className="ag-kicker text-xs uppercase">[ 01 / workflow ]</div>
-                      <h2 className="mt-1 text-sm font-black uppercase text-[#f8f1d0]">Delivery Pipeline</h2>
+                      <h2 className="mt-1 text-sm ag-section-title">Delivery Pipeline</h2>
                     </div>
                     <div className="font-mono text-xs uppercase text-[#9b9b89]">worktree isolated / owner approved</div>
                   </div>
@@ -160,7 +162,7 @@ export default function Page() {
                           <span className="font-mono text-xs text-[#747763]">0{index + 1}</span>
                           <span className={index < 4 ? "font-mono text-xs uppercase text-[#b8ff65]" : "font-mono text-xs uppercase text-[#ffca58]"}>{index < 4 ? "ready" : "gated"}</span>
                         </div>
-                        <div className="mt-3 text-sm font-black uppercase text-[#f8f1d0]">{name}</div>
+                        <div className="mt-3 text-sm font-semibold text-[var(--ag-heading)]">{name}</div>
                         <div className="mt-1 text-xs text-[#9b9b89]">{detail}</div>
                       </div>
                     ))}
@@ -173,7 +175,7 @@ export default function Page() {
                     return (
                       <div className="ag-panel rounded-md border" key={bucket}>
                         <div className="flex items-center justify-between border-b border-[#343727] px-3 py-2">
-                          <h3 className="text-xs font-black uppercase text-[#f8f1d0]">{bucket}</h3>
+                          <h3 className="text-xs font-semibold uppercase text-[var(--ag-heading)]">{bucket}</h3>
                           <span className="rounded bg-[#202316] px-2 py-0.5 font-mono text-xs text-[#ffca58]">{bucketTasks.length}</span>
                         </div>
                         <div className="min-h-40 space-y-2 p-2">
@@ -197,7 +199,7 @@ export default function Page() {
                 <section className="ag-panel overflow-hidden rounded-md border">
                   <div className="border-b border-[#343727] px-4 py-3">
                     <div className="ag-kicker text-xs uppercase">[ 02 / ledger ]</div>
-                    <h2 className="mt-1 text-sm font-black uppercase text-[#f8f1d0]">Task Ledger</h2>
+                    <h2 className="mt-1 text-sm ag-section-title">Task Ledger</h2>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[920px] border-collapse text-sm">
@@ -237,7 +239,7 @@ export default function Page() {
 
                 <section className="ag-panel rounded-md border p-4">
                   <div className="ag-kicker text-xs uppercase">[ queue ]</div>
-                  <h2 className="mt-1 text-sm font-black uppercase text-[#f8f1d0]">Next Actions</h2>
+                  <h2 className="mt-1 text-sm ag-section-title">Next Actions</h2>
                   <div className="mt-3 space-y-2">
                     {actionTasks.slice(0, 5).map((task) => (
                       <Link className="block rounded-md border border-[#343727] bg-[#090a07] px-3 py-2 hover:border-[#ffca58]/60" href={`/tasks/${task.id}`} key={task.id}>
@@ -253,7 +255,7 @@ export default function Page() {
 
                 <section className="ag-panel rounded-md border p-4">
                   <div className="ag-kicker text-xs uppercase">[ mesh ]</div>
-                  <h2 className="mt-1 text-sm font-black uppercase text-[#f8f1d0]">Runtime Router</h2>
+                  <h2 className="mt-1 text-sm ag-section-title">Runtime Router</h2>
                   <p className="mt-1 text-xs text-[#9b9b89]">{enabledRuntimes} enabled. Runtime availability comes from config.</p>
                   <div className="mt-4 grid gap-2">
                     {runtimes.map((runtime) => (
@@ -267,7 +269,7 @@ export default function Page() {
 
                 <section className="ag-panel rounded-md border p-4">
                   <div className="ag-kicker text-xs uppercase">[ github ]</div>
-                  <h2 className="mt-1 text-sm font-black uppercase text-[#f8f1d0]">PR Channel</h2>
+                  <h2 className="mt-1 text-sm ag-section-title">PR Channel</h2>
                   <div className="mt-4 grid grid-cols-2 gap-2">
                     <div className="rounded-md border border-[#343727] bg-[#090a07] px-3 py-2">
                       <div className="font-mono text-[10px] uppercase text-[#9b9b89]">Synced repos</div>
@@ -283,7 +285,7 @@ export default function Page() {
 
                 <section className="ag-panel rounded-md border p-4">
                   <div className="ag-kicker text-xs uppercase">[ registry ]</div>
-                  <h2 className="mt-1 text-sm font-black uppercase text-[#f8f1d0]">Managed Repos</h2>
+                  <h2 className="mt-1 text-sm ag-section-title">Managed Repos</h2>
                   <div className="mt-3 space-y-2">
                     {repos.map((repo) => (
                       <div className="rounded-md border border-[#343727] bg-[#090a07] px-3 py-2 text-sm" key={repo.id}>
@@ -314,7 +316,7 @@ function AgentDirectory({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#343727] px-4 py-3">
         <div>
           <div className="ag-kicker text-xs uppercase">[ agents ]</div>
-          <h2 className="mt-1 text-sm font-black uppercase text-[#f8f1d0]">Runtime Agents</h2>
+          <h2 className="mt-1 text-sm ag-section-title">Runtime Agents</h2>
         </div>
         <div className="font-mono text-xs uppercase text-[#9b9b89]">{runtimes.filter((runtime) => runtime.enabled).length}/{runtimes.length} enabled</div>
       </div>
@@ -323,7 +325,7 @@ function AgentDirectory({
           <div className="bg-[#090a07] p-4" key={runtime.id}>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="truncate text-base font-black text-[#f8f1d0]">{runtime.label}</div>
+                <div className="truncate text-sm font-semibold text-[var(--ag-heading)]">{runtime.label}</div>
                 <div className="mt-1 font-mono text-xs uppercase text-[#9b9b89]">{runtime.type}</div>
               </div>
               <span className={runtime.enabled ? "rounded border border-[#b8ff65]/40 bg-[#b8ff65]/10 px-2 py-1 font-mono text-[10px] uppercase text-[#d6ff9f]" : "rounded border border-[#596044] bg-[#202316] px-2 py-1 font-mono text-[10px] uppercase text-[#8c8d7b]"}>
@@ -370,7 +372,7 @@ function Metric({ label, value, detail, accent }: { label: string; value: number
   return (
     <div className={`ag-panel rounded-md border border-l-4 ${tones[accent]} p-3 sm:p-4`}>
       <div className="font-mono text-xs uppercase text-[#9b9b89]">{label}</div>
-      <div className="mt-2 text-3xl font-black leading-none text-[#f8f1d0] sm:text-4xl">{value}</div>
+      <div className="mt-2 text-2xl font-semibold leading-none text-[var(--ag-heading)] sm:text-3xl">{value}</div>
       <div className="mt-2 truncate text-xs text-[#9b9b89]">{detail}</div>
     </div>
   );
