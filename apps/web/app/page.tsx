@@ -1,121 +1,147 @@
-import { getDashboardData } from "./data";
 import Link from "next/link";
-import { CreateTaskPanel, GitHubRepoActionsTable } from "./dashboard-actions";
+import { CreateTaskPanel, RepoWorkbench } from "./dashboard-actions";
+import { getDashboardData } from "./data";
+
+function statusTone(status: string) {
+  if (status.includes("WAITING")) return "border-amber-500/30 bg-amber-500/10 text-amber-200";
+  if (status === "FAILED" || status === "REJECTED") return "border-red-500/30 bg-red-500/10 text-red-200";
+  if (status === "MERGED" || status === "PR_OPENED") return "border-emerald-500/30 bg-emerald-500/10 text-emerald-200";
+  return "border-zinc-700 bg-zinc-900 text-zinc-200";
+}
 
 export default function Page() {
   const { tasks, approvals, runtimes, repos, githubRepos } = getDashboardData();
+  const pendingApprovals = tasks.filter((task) => task.status.includes("WAITING")).length;
+  const enabledRuntimes = runtimes.filter((runtime) => runtime.enabled).length;
 
   return (
-    <main className="min-h-screen">
-      <div className="border-b border-zinc-800 bg-zinc-950">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
+    <main className="min-h-screen bg-[#090b0f] text-zinc-100">
+      <div className="border-b border-zinc-800 bg-black">
+        <div className="mx-auto flex max-w-[1500px] items-center justify-between px-5 py-3">
           <div>
-            <h1 className="text-base font-semibold tracking-normal">Agent Governor</h1>
-            <p className="text-xs text-zinc-400">Local control plane for PR-first agent work</p>
+            <h1 className="text-base font-semibold">Agent Governor</h1>
+            <p className="text-xs text-zinc-500">Local governance for GitHub-first agent work</p>
           </div>
-          <button className="h-9 rounded-md border border-zinc-700 px-3 text-sm text-zinc-200">Command</button>
-          <Link className="h-9 rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-200" href="/settings/github">GitHub</Link>
+          <nav className="flex items-center gap-2">
+            <Link className="h-9 rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-200" href="/settings/github">GitHub</Link>
+          </nav>
         </div>
       </div>
 
-      <div className="mx-auto grid max-w-7xl gap-4 px-6 py-5 lg:grid-cols-[1fr_320px]">
-        <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase text-zinc-400">Tasks</h2>
-            <button className="h-8 rounded-md bg-zinc-100 px-3 text-sm text-zinc-950">New Task</button>
+      <div className="mx-auto max-w-[1500px] px-5 py-5">
+        <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+            <div className="text-xs uppercase text-zinc-500">Managed Repos</div>
+            <div className="mt-2 text-2xl font-semibold">{repos.length}</div>
           </div>
-          <div className="overflow-hidden rounded-md border border-zinc-800">
-            <table className="w-full border-collapse text-sm">
-              <thead className="bg-zinc-900 text-left text-xs uppercase text-zinc-500">
-                <tr>
-                  <th className="px-3 py-2">Task</th>
-                  <th className="px-3 py-2">Repo</th>
-                  <th className="px-3 py-2">Status</th>
-                  <th className="px-3 py-2">Stage</th>
-                  <th className="px-3 py-2">Runtime</th>
-                  <th className="px-3 py-2">PR</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tasks.map((task) => (
-                  <tr key={task.id} className="border-t border-zinc-800">
-                    <td className="px-3 py-2 font-mono text-xs">
-                      <Link className="text-zinc-100 underline decoration-zinc-700 underline-offset-4" href={`/tasks/${task.id}`}>
-                        TASK-{task.id}
-                      </Link>
-                    </td>
-                    <td className="px-3 py-2">{task.repo}</td>
-                    <td className="px-3 py-2">{task.status}</td>
-                    <td className="px-3 py-2">{task.stage ?? "none"}</td>
-                    <td className="px-3 py-2">{task.runtime}</td>
-                    <td className="px-3 py-2 text-zinc-500">{task.pr || "none"}</td>
-                  </tr>
-                ))}
-                {tasks.length === 0 ? (
-                  <tr className="border-t border-zinc-800">
-                    <td className="px-3 py-6 text-zinc-500" colSpan={6}>No tasks yet</td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
+          <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+            <div className="text-xs uppercase text-zinc-500">GitHub Synced</div>
+            <div className="mt-2 text-2xl font-semibold">{githubRepos.length}</div>
           </div>
-
-          {githubRepos.length === 0 ? (
-            <div className="mt-4 rounded-md border border-zinc-800 p-4 text-sm text-zinc-500">
-              <Link className="underline decoration-zinc-700 underline-offset-4" href="/settings/github">Authenticate GitHub and sync repos</Link>
-            </div>
-          ) : (
-            <GitHubRepoActionsTable repos={githubRepos} />
-          )}
+          <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+            <div className="text-xs uppercase text-zinc-500">Open Tasks</div>
+            <div className="mt-2 text-2xl font-semibold">{tasks.length}</div>
+          </div>
+          <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+            <div className="text-xs uppercase text-zinc-500">Approval Gates</div>
+            <div className="mt-2 text-2xl font-semibold">{pendingApprovals}</div>
+          </div>
         </section>
 
-        <aside className="space-y-4">
-          <CreateTaskPanel repos={repos} />
+        <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_380px]">
+          <section className="space-y-4">
+            <CreateTaskPanel repos={repos} />
 
-          <section className="rounded-md border border-zinc-800 p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase text-zinc-400">Approvals</h2>
-            <div className="space-y-2">
-              {approvals.map((approval) => (
-                <div key={`${approval.taskId}-${approval.stage}-${approval.status}`} className="flex items-center justify-between text-sm">
-                  <span className="font-mono text-xs">TASK-{approval.taskId}</span>
-                  <span>{approval.stage}</span>
-                  <span className={approval.status === "approved" ? "text-emerald-400" : "text-zinc-500"}>{approval.status}</span>
+            <section className="overflow-hidden rounded-md border border-zinc-800 bg-zinc-950/40">
+              <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+                <div>
+                  <h2 className="text-sm font-semibold uppercase text-zinc-300">Task Queue</h2>
+                  <p className="mt-1 text-xs text-zinc-500">Click a task to inspect requirements, design, logs, and approvals.</p>
                 </div>
-              ))}
-              {approvals.length === 0 ? <p className="text-sm text-zinc-500">No approvals recorded</p> : null}
-            </div>
+              </div>
+              <table className="w-full border-collapse text-sm">
+                <thead className="bg-zinc-900 text-left text-xs uppercase text-zinc-500">
+                  <tr>
+                    <th className="px-3 py-2">Task</th>
+                    <th className="px-3 py-2">Repo</th>
+                    <th className="px-3 py-2">Status</th>
+                    <th className="px-3 py-2">Stage</th>
+                    <th className="px-3 py-2">Runtime</th>
+                    <th className="px-3 py-2">PR</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tasks.map((task) => (
+                    <tr key={task.id} className="border-t border-zinc-800 hover:bg-zinc-900/60">
+                      <td className="px-3 py-3 font-mono text-xs">
+                        <Link className="text-zinc-100 underline decoration-zinc-700 underline-offset-4" href={`/tasks/${task.id}`}>TASK-{task.id}</Link>
+                      </td>
+                      <td className="px-3 py-3">{task.repo}</td>
+                      <td className="px-3 py-3">
+                        <span className={`rounded border px-2 py-1 text-xs ${statusTone(task.status)}`}>{task.status}</span>
+                      </td>
+                      <td className="px-3 py-3">{task.stage ?? "none"}</td>
+                      <td className="px-3 py-3">{task.runtime}</td>
+                      <td className="px-3 py-3 text-zinc-500">{task.pr || "none"}</td>
+                    </tr>
+                  ))}
+                  {tasks.length === 0 ? (
+                    <tr className="border-t border-zinc-800">
+                      <td className="px-3 py-8 text-zinc-500" colSpan={6}>Create a task from a managed repo to start the governed workflow.</td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </section>
+
+            <RepoWorkbench githubRepos={githubRepos} managedRepos={repos} />
           </section>
 
-          <section className="rounded-md border border-zinc-800 p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase text-zinc-400">Runtime Health</h2>
-            <div className="grid gap-2 text-sm">
-              {runtimes.map((runtime) => (
-                <div className="flex justify-between" key={runtime.id}>
-                  <span>{runtime.id}</span>
-                  <span className={runtime.enabled ? "text-emerald-400" : "text-zinc-500"}>{runtime.enabled ? "enabled" : "disabled"}</span>
-                </div>
-              ))}
-            </div>
-          </section>
+          <aside className="space-y-4">
+            <section className="rounded-md border border-zinc-800 bg-zinc-950/40 p-4">
+              <h2 className="text-sm font-semibold uppercase text-zinc-300">Runtime Router</h2>
+              <p className="mt-1 text-xs text-zinc-500">{enabledRuntimes} enabled. Disabled runtimes are placeholders until enabled in `config/agents.yml`.</p>
+              <div className="mt-4 space-y-2">
+                {runtimes.map((runtime) => (
+                  <div className="flex items-center justify-between rounded-md border border-zinc-800 bg-black px-3 py-2 text-sm" key={runtime.id}>
+                    <div>
+                      <div>{runtime.id}</div>
+                      <div className="text-xs text-zinc-500">{runtime.type}</div>
+                    </div>
+                    <span className={runtime.enabled ? "text-emerald-400" : "text-zinc-500"}>{runtime.enabled ? "enabled" : "disabled"}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
 
-          <section className="rounded-md border border-zinc-800 p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase text-zinc-400">Repos</h2>
-            <div className="grid gap-2 text-sm">
-              {repos.map((repo) => (
-                <div className="flex justify-between gap-3" key={repo.id}>
-                  <span>{repo.name}</span>
-                  <span className="truncate text-zinc-500">{repo.github}</span>
-                </div>
-              ))}
-              {repos.length === 0 ? <p className="text-sm text-zinc-500">No repos registered</p> : null}
-            </div>
-          </section>
+            <section className="rounded-md border border-zinc-800 bg-zinc-950/40 p-4">
+              <h2 className="text-sm font-semibold uppercase text-zinc-300">Managed Repos</h2>
+              <div className="mt-3 space-y-2 text-sm">
+                {repos.map((repo) => (
+                  <div className="rounded-md border border-zinc-800 bg-black px-3 py-2" key={repo.id}>
+                    <div>{repo.name}</div>
+                    <div className="mt-1 truncate text-xs text-zinc-500">{repo.github}</div>
+                  </div>
+                ))}
+                {repos.length === 0 ? <p className="text-sm text-zinc-500">Clone from GitHub or link a local repo.</p> : null}
+              </div>
+            </section>
 
-          <section className="rounded-md border border-zinc-800 p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase text-zinc-400">Live Logs</h2>
-            <pre className="h-40 overflow-auto rounded bg-black p-3 text-xs text-zinc-400">sqlite ready{"\n"}workflow runner ready{"\n"}runtime router ready</pre>
-          </section>
-        </aside>
+            <section className="rounded-md border border-zinc-800 bg-zinc-950/40 p-4">
+              <h2 className="text-sm font-semibold uppercase text-zinc-300">Approvals</h2>
+              <div className="mt-3 space-y-2">
+                {approvals.map((approval) => (
+                  <div key={`${approval.taskId}-${approval.stage}-${approval.status}`} className="flex items-center justify-between rounded-md border border-zinc-800 bg-black px-3 py-2 text-sm">
+                    <span className="font-mono text-xs">TASK-{approval.taskId}</span>
+                    <span>{approval.stage}</span>
+                    <span className={approval.status === "approved" ? "text-emerald-400" : "text-zinc-500"}>{approval.status}</span>
+                  </div>
+                ))}
+                {approvals.length === 0 ? <p className="text-sm text-zinc-500">No approvals recorded.</p> : null}
+              </div>
+            </section>
+          </aside>
+        </div>
       </div>
     </main>
   );
