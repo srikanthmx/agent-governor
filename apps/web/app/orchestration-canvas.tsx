@@ -51,23 +51,23 @@ type CanvasEdge = {
 };
 
 const kindTone: Record<NodeKind, string> = {
-  input: "border-sky-400/50 text-sky-100",
-  governor: "border-emerald-400/70 text-emerald-100",
-  repo: "border-zinc-600 text-zinc-100",
-  task: "border-violet-400/60 text-violet-100",
-  runtime: "border-amber-300/60 text-amber-100",
-  approval: "border-orange-300/70 text-orange-100",
-  pr: "border-cyan-300/60 text-cyan-100"
+  input: "border-[#6bdcff]/55 text-[#b5edff]",
+  governor: "border-[#b8ff65]/75 text-[#d6ff9f]",
+  repo: "border-[#d6cfaa]/45 text-[#f8f1d0]",
+  task: "border-[#b69cff]/65 text-[#ded2ff]",
+  runtime: "border-[#ffca58]/65 text-[#ffe1a0]",
+  approval: "border-[#ff715b]/70 text-[#ffb4a8]",
+  pr: "border-[#6bdcff]/70 text-[#b5edff]"
 };
 
 const kindDot: Record<NodeKind, string> = {
-  input: "bg-sky-300",
-  governor: "bg-emerald-300",
-  repo: "bg-zinc-300",
-  task: "bg-violet-300",
-  runtime: "bg-amber-200",
-  approval: "bg-orange-300",
-  pr: "bg-cyan-300"
+  input: "bg-[#6bdcff]",
+  governor: "bg-[#b8ff65]",
+  repo: "bg-[#d6cfaa]",
+  task: "bg-[#b69cff]",
+  runtime: "bg-[#ffca58]",
+  approval: "bg-[#ff715b]",
+  pr: "bg-[#6bdcff]"
 };
 
 function taskRoute(status: string) {
@@ -205,9 +205,10 @@ export function OrchestrationCanvas({
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
 
   return (
-    <div className="grid min-h-[540px] overflow-hidden rounded-md border border-zinc-800 bg-[#050506] xl:grid-cols-[1fr_220px]">
+    <div className="ag-panel-dark grid min-h-[540px] overflow-hidden rounded-md border xl:grid-cols-[1fr_220px]">
       <div className="relative min-h-[540px] overflow-hidden">
-        <div className="absolute inset-0 opacity-25 [background-image:linear-gradient(#27272a_1px,transparent_1px),linear-gradient(90deg,#27272a_1px,transparent_1px)] [background-size:24px_24px]" />
+        <div className="absolute inset-0 opacity-45 [background-image:linear-gradient(#343727_1px,transparent_1px),linear-gradient(90deg,#343727_1px,transparent_1px)] [background-size:24px_24px]" />
+        <div className="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,#b8ff65,#ffca58,#ff715b,#6bdcff)]" />
         <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
           {edges.map((edge) => {
             const from = nodeById.get(edge.from);
@@ -218,7 +219,7 @@ export function OrchestrationCanvas({
                 d={edgePath(from, to)}
                 fill="none"
                 key={edge.id}
-                stroke={edge.active ? "#34d399" : "#52525b"}
+                stroke={edge.active ? "#b8ff65" : "#596044"}
                 strokeDasharray={edge.active ? "0" : "1.4 1.4"}
                 strokeLinecap="round"
                 strokeWidth={edge.active ? 0.42 : 0.25}
@@ -228,14 +229,14 @@ export function OrchestrationCanvas({
           })}
         </svg>
         <div className="relative z-[1] px-5 py-4">
-          <div className="font-mono text-xs uppercase tracking-[0.22em] text-zinc-500">[ live orchestration ]</div>
-          <div className="mt-1 text-sm text-zinc-300">Generated from repos, tasks, approvals, runtimes, and PR state</div>
+          <div className="ag-kicker text-xs uppercase">[ live orchestration ]</div>
+          <div className="mt-1 text-sm font-semibold text-[#f8f1d0]">Generated from repos, tasks, approvals, runtimes, and PR state</div>
         </div>
         {nodes.map((node) => (
           <button
-            className={`absolute z-[1] w-[116px] rounded-md border bg-black/95 px-3 py-2 text-left text-sm shadow-[0_0_30px_rgba(0,0,0,0.45)] transition hover:border-zinc-300 sm:w-[128px] ${
+            className={`absolute z-[1] w-[116px] rounded-md border bg-[#090a07]/95 px-3 py-2 text-left text-sm shadow-[0_0_30px_rgba(0,0,0,0.45)] transition hover:border-[#f8f1d0] sm:w-[128px] ${
               kindTone[node.kind]
-            } ${selected.id === node.id ? "ring-1 ring-white/60" : ""} ${node.active ? "" : "opacity-55"}`}
+            } ${selected.id === node.id ? "ring-1 ring-[#ffca58] shadow-[0_0_0_1px_rgba(255,202,88,0.35),0_0_28px_rgba(255,202,88,0.12)]" : ""} ${node.active ? "" : "opacity-55"}`}
             key={node.id}
             onClick={() => setSelectedId(node.id)}
             style={{ left: `${node.x}%`, top: `${node.y}%`, transform: "translate(-50%, -50%)" }}
@@ -243,22 +244,22 @@ export function OrchestrationCanvas({
           >
             <div className="flex items-center gap-2">
               <span className={`h-2 w-2 rounded-full ${kindDot[node.kind]} ${node.active ? "animate-pulse" : ""}`} />
-              <span className="min-w-0 truncate font-medium">{node.label}</span>
+              <span className="min-w-0 truncate font-black">{node.label}</span>
             </div>
-            <div className="mt-1 truncate font-mono text-[10px] uppercase text-zinc-500">{node.meta}</div>
+            <div className="mt-1 truncate font-mono text-[10px] uppercase text-[#9b9b89]">{node.meta}</div>
           </button>
         ))}
       </div>
 
-      <aside className="border-t border-zinc-800 bg-black/70 p-4 xl:border-l xl:border-t-0">
-        <div className="font-mono text-xs uppercase tracking-[0.18em] text-zinc-500">selected node</div>
-        <div className={`mt-3 rounded-md border bg-zinc-950 p-3 ${kindTone[selected.kind]}`}>
+      <aside className="border-t border-[#343727] bg-[#0a0b08]/80 p-4 xl:border-l xl:border-t-0">
+        <div className="ag-kicker text-xs uppercase">selected node</div>
+        <div className={`mt-3 rounded-md border bg-[#151710] p-3 ${kindTone[selected.kind]}`}>
           <div className="flex items-center gap-2">
             <span className={`h-2.5 w-2.5 rounded-full ${kindDot[selected.kind]}`} />
-            <div className="truncate text-sm font-semibold">{selected.label}</div>
+            <div className="truncate text-sm font-black">{selected.label}</div>
           </div>
-          <div className="mt-3 text-sm text-zinc-300">{selected.detail}</div>
-          <div className="mt-3 rounded bg-black px-2 py-1 font-mono text-[11px] uppercase text-zinc-500">{selected.meta}</div>
+          <div className="mt-3 text-sm text-[#d6cfaa]">{selected.detail}</div>
+          <div className="mt-3 rounded bg-[#090a07] px-2 py-1 font-mono text-[11px] uppercase text-[#9b9b89]">{selected.meta}</div>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2">
           <MiniStat label="repos" value={repos.length} />
@@ -268,8 +269,8 @@ export function OrchestrationCanvas({
         </div>
         <div className="mt-4 space-y-2">
           {(["input", "repo", "task", "runtime", "approval", "pr"] as NodeKind[]).map((kind) => (
-            <div className="flex items-center justify-between rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1.5 text-xs" key={kind}>
-              <span className="capitalize text-zinc-400">{kind}</span>
+            <div className="flex items-center justify-between rounded-md border border-[#343727] bg-[#151710] px-2 py-1.5 text-xs" key={kind}>
+              <span className="capitalize text-[#d6cfaa]">{kind}</span>
               <span className={`h-2 w-2 rounded-full ${kindDot[kind]}`} />
             </div>
           ))}
@@ -281,9 +282,9 @@ export function OrchestrationCanvas({
 
 function MiniStat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-md border border-zinc-800 bg-black px-3 py-2">
-      <div className="font-mono text-[10px] uppercase text-zinc-500">{label}</div>
-      <div className="mt-1 text-lg font-semibold text-zinc-100">{value}</div>
+    <div className="rounded-md border border-[#343727] bg-[#151710] px-3 py-2">
+      <div className="font-mono text-[10px] uppercase text-[#9b9b89]">{label}</div>
+      <div className="mt-1 text-lg font-black text-[#f8f1d0]">{value}</div>
     </div>
   );
 }

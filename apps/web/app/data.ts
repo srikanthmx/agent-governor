@@ -6,7 +6,8 @@ import { join } from "node:path";
 export interface DashboardData {
   tasks: Array<{ id: number; title: string; description: string; repo: string; status: string; stage: string | null; runtime: string; pr: string | null }>;
   approvals: Array<{ taskId: number; stage: string; status: string }>;
-  runtimes: Array<{ id: string; type: string; enabled: boolean }>;
+  runtimes: Array<{ id: string; label: string; type: string; enabled: boolean; command: string | null; capabilities: string[]; preferredRoles: string[] }>;
+  roles: Array<{ id: string; preferred: string[]; fallback: string[] }>;
   repos: Array<{ id: number; name: string; github: string }>;
   githubRepos: Array<{ id: number; nameWithOwner: string; description: string; visibility: string; defaultBranch: string; url: string; updatedAt: string }>;
 }
@@ -145,7 +146,20 @@ export function getDashboardData(): DashboardData {
         stage: approval.stage,
         status: approval.status
       })),
-      runtimes: config.agents.agents.map((agent) => ({ id: agent.id, type: agent.type, enabled: agent.enabled })),
+      runtimes: config.agents.agents.map((agent) => ({
+        id: agent.id,
+        label: agent.label,
+        type: agent.type,
+        enabled: agent.enabled,
+        command: agent.command ?? null,
+        capabilities: agent.capabilities,
+        preferredRoles: agent.preferredRoles ?? []
+      })),
+      roles: Object.entries(config.agents.roles).map(([id, route]) => ({
+        id,
+        preferred: route.preferred,
+        fallback: route.fallback
+      })),
       repos: repos.map((repo) => ({
         id: repo.id,
         name: repo.name,

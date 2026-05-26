@@ -4,12 +4,30 @@
 
 :root {
   color-scheme: dark;
+  --ag-bg: #0c0d09;
+  --ag-bg-2: #12140e;
+  --ag-panel: #151710;
+  --ag-panel-2: #1b1d14;
+  --ag-line: #343727;
+  --ag-line-strong: #596044;
+  --ag-text: #f4f0df;
+  --ag-muted: #9b9b89;
+  --ag-green: #b8ff65;
+  --ag-cyan: #6bdcff;
+  --ag-amber: #ffca58;
+  --ag-coral: #ff715b;
+  --ag-violet: #b69cff;
 }
 
 body {
-  background: #090b0f;
-  color: #e5e7eb;
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background:
+    linear-gradient(90deg, rgb(255 255 255 / 0.025) 1px, transparent 1px),
+    linear-gradient(rgb(255 255 255 / 0.018) 1px, transparent 1px),
+    var(--ag-bg);
+  background-size: 48px 48px;
+  color: var(--ag-text);
+  font-family: "Avenir Next", "IBM Plex Sans", "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: 0;
 }
 
 button,
@@ -19,19 +37,79 @@ select {
   font: inherit;
 }
 
+.font-mono,
+code,
+kbd,
+pre {
+  font-family: "JetBrains Mono", "SF Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
 button,
 a,
 input,
 select,
 textarea {
-  outline-color: #71717a;
+  outline-color: var(--ag-amber);
+}
+
+button,
+a {
+  transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+button:hover,
+a:hover {
+  transform: translateY(-1px);
+}
+
+input,
+select,
+textarea {
+  background: #0a0b08;
+  border-color: var(--ag-line);
+  color: var(--ag-text);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #696b5e;
 }
 
 ::selection {
-  background: #3f3f46;
-  color: #fafafa;
+  background: var(--ag-amber);
+  color: #11120d;
 }
 
 * {
-  scrollbar-color: #3f3f46 #09090b;
+  scrollbar-color: var(--ag-line-strong) #0a0b08;
+}
+
+.ag-panel {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.035), rgb(0 0 0 / 0.18)), var(--ag-panel);
+  border-color: var(--ag-line);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.055), 0 18px 44px rgb(0 0 0 / 0.18);
+}
+
+.ag-panel-dark {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.02), rgb(0 0 0 / 0.28)), #090a07;
+  border-color: var(--ag-line);
+}
+
+.ag-kicker {
+  color: var(--ag-amber);
+  font-family: "JetBrains Mono", "SF Mono", ui-monospace, monospace;
+  letter-spacing: 0.18em;
+}
+
+.ag-muted {
+  color: var(--ag-muted);
+}
+
+.ag-table-head {
+  background: #202316;
+  color: #d6cfaa;
+}
+
+.ag-row:hover {
+  background: #1d2115;
 }
