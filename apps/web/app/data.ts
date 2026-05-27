@@ -1,4 +1,5 @@
 import { detectLocalTools, loadConfig } from "@agent-governor/config";
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";
@@ -27,7 +28,31 @@ export interface TaskDetailData {
   } | null;
   artifacts: Array<{ name: string; content: string }>;
   approvals: Array<{ stage: string; status: string; approvedBy: string | null; comment: string | null; createdAt: string }>;
+  diff: { status: string; stat: string; patch: string } | null;
   runtimes: DashboardData["runtimes"];
+}
+
+function gitOutput(worktree: string, args: string[]): string {
+  try {
+    return execFileSync("git", ["-C", worktree, ...args], {
+      encoding: "utf8",
+      maxBuffer: 1024 * 1024
+    }).trim();
+  } catch {
+    return "";
+  }
+}
+
+function getWorktreeDiff(worktree: string | null | undefined): TaskDetailData["diff"] {
+  if (!worktree || !existsSync(worktree)) {
+    return null;
+  }
+  const pathspec = [".", ":!.ai"];
+  return {
+    status: gitOutput(worktree, ["status", "--short", "--", ...pathspec]),
+    stat: gitOutput(worktree, ["diff", "--stat", "--", ...pathspec]),
+    patch: gitOutput(worktree, ["diff", "--", ...pathspec]).slice(0, 60000)
+  };
 }
 
 export function getDashboardData(): DashboardData {
@@ -228,6 +253,7 @@ export function getTaskDetail(taskId: number): TaskDetailData {
       task,
       artifacts,
       approvals,
+      diff: getWorktreeDiff(task?.worktree),
       runtimes: config.agents.agents.map((agent) => ({
         id: agent.id,
         label: agent.label,
