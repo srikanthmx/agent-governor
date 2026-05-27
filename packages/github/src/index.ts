@@ -73,7 +73,15 @@ export class GhCliManager implements GitHubManager {
     if (input.head) {
       args.push("--head", input.head);
     }
-    const result = await execa("gh", args, { cwd: input.cwd });
+    const result = await execa("gh", args, { cwd: input.cwd, reject: false });
+    if (result.exitCode !== 0) {
+      const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
+      const existingUrl = output.match(/https:\/\/github\.com\/[^\s]+\/pull\/\d+/)?.[0];
+      if (existingUrl) {
+        return existingUrl;
+      }
+      throw new Error(output || `gh pr create exited with ${result.exitCode}`);
+    }
     return result.stdout.trim();
   }
 
