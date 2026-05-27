@@ -10,6 +10,8 @@ export async function POST(request: Request) {
     taskId?: string;
     stage?: string;
     owner?: string;
+    runtimeId?: string;
+    autoRun?: boolean;
   };
   const taskId = String(body.taskId ?? "").replace(/^TASK-/i, "");
   if (!taskId || Number.isNaN(Number(taskId))) {
@@ -33,6 +35,29 @@ export async function POST(request: Request) {
     reject: false,
   });
   const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
+  let runOutput = "";
+  const shouldAutoRun = body.autoRun !== false && (body.stage === "requirements" || body.stage === "design");
+  if (result.exitCode === 0 && shouldAutoRun) {
+    const runArgs = ["agent", "run-task", taskId];
+    if (body.runtimeId) {
+      runArgs.push("--runtime", body.runtimeId);
+    }
+    const runResult = await execa("pnpm", runArgs, {
+      cwd: projectRoot(process.cwd()),
+      reject: false,
+    });
+    runOutput = [runResult.stdout, runResult.stderr].filter(Boolean).join("\n");
+    return NextResponse.json(
+      {
+        ok: runResult.exitCode === 0,
+        output,
+        runOutput,
+        error: runResult.exitCode === 0 ? undefined : runOutput || `run-task exited with ${runResult.exitCode}`
+      },
+      { status: runResult.exitCode === 0 ? 200 : 500 }
+    );
+  }
+
   return NextResponse.json(
     { ok: result.exitCode === 0, output, error: result.exitCode === 0 ? undefined : output || `approve exited with ${result.exitCode}` },
     { status: result.exitCode === 0 ? 200 : 500 }
