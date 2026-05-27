@@ -249,7 +249,7 @@ export class WorkflowEngine {
     return repos;
   }
 
-  async advance(taskId: number, actorId = "cli", options?: { runtimeId?: string }): Promise<TaskRecord> {
+  async advance(taskId: number, actorId = "cli", options?: { runtimeId?: string; model?: string }): Promise<TaskRecord> {
     const task = this.tasks.getTask(taskId);
     const repo = this.repos.getRepo(task.repo_id);
     const workflowStages = stagesFor(this.input.config, task.workflow);
@@ -272,7 +272,7 @@ export class WorkflowEngine {
     ensureTaskArtifacts(worktreePath, task);
 
     if (task.status === "NEW" || task.status === "CONTEXT_READY") {
-      await this.runArtifactStage({ task, stage: "requirements", status: "WAITING_REQUIREMENTS_APPROVAL", worktreePath, workflowStages, runtimeId: options?.runtimeId });
+      await this.runArtifactStage({ task, stage: "requirements", status: "WAITING_REQUIREMENTS_APPROVAL", worktreePath, workflowStages, runtimeId: options?.runtimeId, model: options?.model });
       return this.tasks.getTask(task.id);
     }
 
@@ -280,7 +280,7 @@ export class WorkflowEngine {
       if (!this.approvals.hasApproval(task.id, "requirements")) {
         throw new Error(`TASK-${task.id} is waiting for requirements approval`);
       }
-      await this.runArtifactStage({ task, stage: "design", status: "WAITING_DESIGN_APPROVAL", worktreePath, workflowStages, runtimeId: options?.runtimeId });
+      await this.runArtifactStage({ task, stage: "design", status: "WAITING_DESIGN_APPROVAL", worktreePath, workflowStages, runtimeId: options?.runtimeId, model: options?.model });
       return this.tasks.getTask(task.id);
     }
 
@@ -288,7 +288,7 @@ export class WorkflowEngine {
       if (!this.approvals.hasApproval(task.id, "design")) {
         throw new Error(`TASK-${task.id} is waiting for design approval`);
       }
-      await this.runArtifactStage({ task, stage: "implementation", status: "WAITING_PR_APPROVAL", worktreePath, workflowStages, runtimeId: options?.runtimeId });
+      await this.runArtifactStage({ task, stage: "implementation", status: "WAITING_PR_APPROVAL", worktreePath, workflowStages, runtimeId: options?.runtimeId, model: options?.model });
       audit(this.input.db, { actorType: "system", actorId, action: "task.ready_for_pr", entityType: "task", entityId: String(task.id) });
       return this.tasks.getTask(task.id);
     }
@@ -401,6 +401,7 @@ export class WorkflowEngine {
     worktreePath: string;
     workflowStages: WorkflowStage[];
     runtimeId?: string;
+    model?: string;
   }): Promise<void> {
     const stageConfig = input.workflowStages.find((stage) => stage.id === input.stage);
     if (!stageConfig) {
@@ -430,6 +431,7 @@ export class WorkflowEngine {
         worktreePath: input.worktreePath,
         stage: input.stage,
         role: stageConfig.role,
+        model: input.model,
         prompt: promptFor(
           input.stage,
           input.task,

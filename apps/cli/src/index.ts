@@ -165,6 +165,8 @@ program.command("list-runtimes").description("List configured runtime adapters")
     configured: agent.configuredEnabled,
     detected: agent.detected,
     detectCommand: agent.detectedCommand ?? "",
+    defaultModel: agent.defaultModel ?? "",
+    models: (agent.models ?? []).join(","),
     capabilities: agent.capabilities.join(",")
   })));
 });
@@ -325,10 +327,12 @@ program
   .command("run-task <taskId>")
   .description("Advance a task through the next allowed workflow stage")
   .option("--runtime <id>", "Prefer a configured runtime adapter for this run")
+  .option("--model <model>", "Pass a model name to the selected runtime when supported")
   .action(async (taskId, options) => {
     const { config, db } = dbForCwd();
     const task = await new WorkflowEngine({ db, config }).advance(Number(String(taskId).replace(/^TASK-/i, "")), "cli", {
-      runtimeId: options.runtime
+      runtimeId: options.runtime,
+      model: options.model
     });
     console.log(`TASK-${task.id} ${task.status} ${task.current_stage ?? ""}`.trim());
     db.close();

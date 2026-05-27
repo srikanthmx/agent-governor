@@ -7,7 +7,7 @@ import { join } from "node:path";
 export interface DashboardData {
   tasks: Array<{ id: number; title: string; description: string; repo: string; status: string; stage: string | null; runtime: string; pr: string | null }>;
   approvals: Array<{ taskId: number; stage: string; status: string }>;
-  runtimes: Array<{ id: string; label: string; type: string; enabled: boolean; configuredEnabled: boolean; detected: boolean; detectedCommand: string | null; command: string | null; args: string[]; capabilities: string[]; preferredRoles: string[] }>;
+  runtimes: Array<{ id: string; label: string; type: string; enabled: boolean; configuredEnabled: boolean; detected: boolean; detectedCommand: string | null; command: string | null; args: string[]; models: string[]; defaultModel: string | null; capabilities: string[]; preferredRoles: string[] }>;
   roles: Array<{ id: string; preferred: string[]; fallback: string[] }>;
   localTools: ReturnType<typeof detectLocalTools>;
   repos: Array<{ id: number; name: string; github: string }>;
@@ -184,6 +184,8 @@ export function getDashboardData(): DashboardData {
         detectedCommand: agent.detectedCommand ?? null,
         command: agent.command ?? null,
         args: agent.args ?? [],
+        models: agent.models ?? [],
+        defaultModel: agent.defaultModel ?? null,
         capabilities: agent.capabilities,
         preferredRoles: agent.preferredRoles ?? []
       })),
@@ -280,6 +282,8 @@ export function getTaskDetail(taskId: number): TaskDetailData {
         detectedCommand: agent.detectedCommand ?? null,
         command: agent.command ?? null,
         args: agent.args ?? [],
+        models: agent.models ?? [],
+        defaultModel: agent.defaultModel ?? null,
         capabilities: agent.capabilities,
         preferredRoles: agent.preferredRoles ?? []
       }))

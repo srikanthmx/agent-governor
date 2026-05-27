@@ -22,6 +22,7 @@ export async function POST(request: Request) {
     taskId?: string;
     owner?: string;
     runtimeId?: string;
+    model?: string;
   };
   const taskId = String(body.taskId ?? "").replace(/^TASK-/i, "");
   if (!taskId || Number.isNaN(Number(taskId))) {
@@ -39,6 +40,9 @@ export async function POST(request: Request) {
   const runArgs = ["run-task", taskId];
   if (body.runtimeId) {
     runArgs.push("--runtime", body.runtimeId);
+  }
+  if (body.model) {
+    runArgs.push("--model", body.model);
   }
 
   const actions = [

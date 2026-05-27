@@ -36,6 +36,7 @@ export interface RuntimeRunInput {
   worktreePath: string;
   stage: string;
   role: string;
+  model?: string;
   prompt: string;
   contextFiles: string[];
   expectedOutput: ExpectedOutput;

@@ -29,6 +29,8 @@ export interface AgentConfig {
     command?: string;
     detectCommand?: string;
     args?: string[];
+    models?: string[];
+    defaultModel?: string;
     capabilities: string[];
     preferredRoles?: string[];
     configuredEnabled?: boolean;

@@ -61,10 +61,14 @@ export class ShellAdapter implements RuntimeAdapter {
     const stderrPath = join(runDir, "stderr.log");
     writeFileSync(promptPath, input.prompt);
 
-    const args = (this.config.args ?? []).map((arg) => arg.replaceAll("{promptFile}", promptPath));
+    const args = (this.config.args ?? [])
+      .map((arg) => arg
+        .replaceAll("{promptFile}", promptPath)
+        .replaceAll("{model}", input.model ?? ""))
+      .filter((arg) => arg !== "__MODEL__" || input.model);
     const child = spawn(this.config.command, args, {
       cwd: input.worktreePath,
-      env: { ...process.env, AGENT_GOVERNOR_PROMPT_FILE: promptPath },
+      env: { ...process.env, AGENT_GOVERNOR_PROMPT_FILE: promptPath, AGENT_GOVERNOR_MODEL: input.model ?? "" },
       stdio: ["pipe", "pipe", "pipe"]
     });
 

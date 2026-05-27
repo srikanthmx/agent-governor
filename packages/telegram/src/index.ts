@@ -23,7 +23,7 @@ export function createTelegramBot(input: { token: string; db: GovernorDb; config
       "/newrepo <name> <description>",
       "/selectrepo <name>",
       "/idea <text>",
-      "/run <taskId> [runtime]",
+      "/run <taskId> [runtime] [model]",
       "/tasks",
       "/status <taskId>",
       "/approve <taskId>",
@@ -91,14 +91,14 @@ export function createTelegramBot(input: { token: string; db: GovernorDb; config
   });
 
   bot.command("run", async (ctx) => {
-    const [taskToken, runtimeId] = ctx.message.text.split(/\s+/).slice(1);
+    const [taskToken, runtimeId, model] = ctx.message.text.split(/\s+/).slice(1);
     const id = Number(taskToken?.replace(/^TASK-/i, ""));
     if (!id) {
-      ctx.reply("Usage: /run <taskId> [runtime]");
+      ctx.reply("Usage: /run <taskId> [runtime] [model]");
       return;
     }
-    const task = await workflow.advance(id, userId(ctx), { runtimeId });
-    ctx.reply(`Ran TASK-${task.id} with ${runtimeId ?? "role routing"}; status: ${task.status}`);
+    const task = await workflow.advance(id, userId(ctx), { runtimeId, model });
+    ctx.reply(`Ran TASK-${task.id} with ${runtimeId ?? "role routing"}${model ? ` / ${model}` : ""}; status: ${task.status}`);
   });
 
   bot.command("tasks", (ctx) => {

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-type Runtime = { id: string; label: string; enabled: boolean };
+type Runtime = { id: string; label: string; enabled: boolean; models?: string[]; defaultModel?: string | null };
 
 function stageLabel(stage: string | null) {
   if (!stage) return "";
@@ -33,10 +33,20 @@ export function TaskActions({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
   const [runtimeId, setRuntimeId] = useState(runtimes.find((r) => r.enabled)?.id ?? "");
-  const approvalLabel = stageLabel(approvalStage);
-  const enabledRuntimes = runtimes.filter((r) => r.enabled);
+  const selectedRuntime = useMemo(() => runtimes.find((runtime) => runtime.id === runtimeId), [runtimeId, runtimes]);
+  const [model, setModel] = useState(selectedRuntime?.defaultModel ?? selectedRuntime?.models?.[0] ?? "");
+  const [showMore, setShowMore] = useState(false);
+
+  const label = stageLabel(approvalStage);
+  const enabled = runtimes.filter((r) => r.enabled);
   const isPlanningGate = approvalStage === "requirements" || approvalStage === "design";
   const isPrGate = approvalStage === "pr";
+  const modelOptions = selectedRuntime?.models ?? [];
+
+  useEffect(() => {
+    const nextRuntime = runtimes.find((runtime) => runtime.id === runtimeId);
+    setModel(nextRuntime?.defaultModel ?? nextRuntime?.models?.[0] ?? "");
+  }, [runtimeId, runtimes]);
 
   async function doAction(url: string, body: Record<string, unknown>) {
     setBusy(true);
@@ -70,101 +80,147 @@ export function TaskActions({
     );
   }
 
-  return (
-    <div className="flex items-center gap-2 flex-wrap">
-      {message && (
-        <span className={`ag-message ${message.ok ? "ag-message-success" : "ag-message-error"}`}>
-          {message.text}
-        </span>
-      )}
+  /* ─── Waiting for approval ─── */
+  if (isWaiting && approvalStage) {
+    return (
+      <div className="space-y-3">
+        {message && (
+          <div className={`ag-message ${message.ok ? "ag-message-success" : "ag-message-error"}`}>{message.text}</div>
+        )}
 
-      {/* Approve / Reject for waiting states */}
-      {isWaiting && approvalStage && (
-        <>
-          {enabledRuntimes.length > 1 && isPlanningGate && (
+        {/* Runtime selector — only for planning gates with multiple runtimes */}
+        {enabled.length > 1 && isPlanningGate && (
+          <div className="flex items-center gap-2">
             <select
               className="ag-select h-[28px] text-[12px]"
-              style={{ width: "auto", minWidth: 110 }}
+              style={{ width: "auto", minWidth: 130 }}
               value={runtimeId}
               onChange={(e) => setRuntimeId(e.target.value)}
             >
-              {enabledRuntimes.map((r) => (
+              {enabled.map((r) => (
                 <option key={r.id} value={r.id}>{r.label}</option>
               ))}
             </select>
-          )}
+            {modelOptions.length > 0 && (
+              <select
+                className="ag-select h-[28px] text-[12px]"
+                style={{ width: "auto", minWidth: 120 }}
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+              >
+                {modelOptions.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
+
+        {/* Primary action row */}
+        <div className="flex items-center gap-2">
           {isPrGate ? (
             <button
-              className="ag-btn ag-btn-success ag-btn-sm"
+              className="ag-btn ag-btn-success"
               disabled={busy}
               onClick={() => doAction("/api/tasks/pr", { taskId })}
             >
-              {busy ? "..." : "Approve & Open PR"}
+              {busy ? "Opening..." : "Approve & Open PR"}
             </button>
           ) : (
             <button
-              className="ag-btn ag-btn-success ag-btn-sm"
+              className="ag-btn ag-btn-success"
               disabled={busy}
-              onClick={() => doAction("/api/tasks/approve", { taskId, stage: approvalStage, runtimeId, autoRun: true })}
+              onClick={() => doAction("/api/tasks/approve", { taskId, stage: approvalStage, runtimeId, model, autoRun: true })}
             >
-              {busy ? "..." : isPlanningGate ? `Approve ${approvalLabel} & Run Next` : `Approve ${approvalLabel}`}
+              {busy ? "..." : isPlanningGate ? `Approve & Run Next` : `Approve ${label}`}
             </button>
           )}
-          {isPlanningGate && (
-            <button
-              className="ag-btn ag-btn-primary ag-btn-sm"
-              disabled={busy}
-              onClick={() => doAction("/api/tasks/approve-planning", { taskId, runtimeId })}
-            >
-              Approve Planning Gates
-            </button>
-          )}
-          <button
-            className="ag-btn ag-btn-ghost ag-btn-sm"
-            disabled={busy}
-            onClick={() => doAction("/api/tasks/approve", { taskId, stage: approvalStage, autoRun: false })}
-          >
-            Approve Only
-          </button>
           <button
             className="ag-btn ag-btn-danger ag-btn-sm"
             disabled={busy}
             onClick={() => doAction("/api/tasks/reject", { taskId, stage: approvalStage })}
           >
-            Reject {approvalLabel}
+            Reject
           </button>
-        </>
-      )}
+        </div>
 
-      {/* Run for actionable states */}
-      {canRun && (
-        <>
-          {enabledRuntimes.length > 1 && (
-            <select
-              className="ag-select h-[28px] text-[12px]"
-              style={{ width: "auto", minWidth: 110 }}
-              value={runtimeId}
-              onChange={(e) => setRuntimeId(e.target.value)}
+        {/* Secondary actions — collapsed by default */}
+        {(isPlanningGate || !isPrGate) && (
+          <div>
+            <button
+              className="text-[11px] text-[var(--ag-text-4)] hover:text-[var(--ag-text-3)] transition-colors"
+              onClick={() => setShowMore(!showMore)}
             >
-              {enabledRuntimes.map((r) => (
-                <option key={r.id} value={r.id}>{r.label}</option>
-              ))}
-            </select>
-          )}
-          <button
-            className="ag-btn ag-btn-primary ag-btn-sm"
-            disabled={busy || !runtimeId}
-            onClick={() => doAction("/api/tasks/run", { taskId, runtimeId })}
-          >
-            {busy ? "Running..." : "Run Next Stage"}
-          </button>
-        </>
-      )}
+              {showMore ? "Less options" : "More options..."}
+            </button>
+            {showMore && (
+              <div className="flex items-center gap-2 mt-2 ag-animate-in">
+                <button
+                  className="ag-btn ag-btn-ghost ag-btn-sm"
+                  disabled={busy}
+                  onClick={() => doAction("/api/tasks/approve", { taskId, stage: approvalStage, autoRun: false })}
+                >
+                  Approve Only
+                </button>
+                {isPlanningGate && (
+                  <button
+                    className="ag-btn ag-btn-ghost ag-btn-sm"
+                    disabled={busy}
+                    onClick={() => doAction("/api/tasks/approve-planning", { taskId, runtimeId, model })}
+                  >
+                    Skip All Planning
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
-      {/* In-progress indicator */}
-      {!isWaiting && !canRun && (
-        <span className="ag-badge ag-badge-active">Processing</span>
-      )}
-    </div>
-  );
+  /* ─── Can run next stage ─── */
+  if (canRun) {
+    return (
+      <div className="flex items-center gap-2">
+        {message && (
+          <span className={`ag-message ${message.ok ? "ag-message-success" : "ag-message-error"}`}>{message.text}</span>
+        )}
+        {enabled.length > 1 && (
+          <select
+            className="ag-select h-[34px] text-[12px]"
+            style={{ width: "auto", minWidth: 130 }}
+            value={runtimeId}
+            onChange={(e) => setRuntimeId(e.target.value)}
+          >
+            {enabled.map((r) => (
+              <option key={r.id} value={r.id}>{r.label}</option>
+            ))}
+          </select>
+        )}
+        {modelOptions.length > 0 && (
+          <select
+            className="ag-select h-[34px] text-[12px]"
+            style={{ width: "auto", minWidth: 120 }}
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+          >
+            {modelOptions.map((option) => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </select>
+        )}
+        <button
+          className="ag-btn ag-btn-primary"
+          disabled={busy || !runtimeId}
+          onClick={() => doAction("/api/tasks/run", { taskId, runtimeId, model })}
+        >
+          {busy ? "Running..." : "Run Next Stage"}
+        </button>
+      </div>
+    );
+  }
+
+  /* ─── Processing state ─── */
+  return <span className="ag-badge ag-badge-active">Processing</span>;
 }

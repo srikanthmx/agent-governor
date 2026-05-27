@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type GithubRepo = {
   id: number;
@@ -21,6 +21,8 @@ type RuntimeOption = {
   id: string;
   label: string;
   enabled: boolean;
+  models?: string[];
+  defaultModel?: string | null;
 };
 
 async function readJson(response: Response) {
@@ -186,8 +188,15 @@ export function CreateTaskPanel({ repos, runtimes }: { repos: ManagedRepo[]; run
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [runtimeId, setRuntimeId] = useState(runtimes.find((runtime) => runtime.enabled)?.id ?? runtimes[0]?.id ?? "");
+  const selectedRuntime = useMemo(() => runtimes.find((runtime) => runtime.id === runtimeId), [runtimeId, runtimes]);
+  const [model, setModel] = useState(selectedRuntime?.defaultModel ?? selectedRuntime?.models?.[0] ?? "");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const nextRuntime = runtimes.find((runtime) => runtime.id === runtimeId);
+    setModel(nextRuntime?.defaultModel ?? nextRuntime?.models?.[0] ?? "");
+  }, [runtimeId, runtimes]);
 
   async function createTask(run = false) {
     setBusy(true);
@@ -196,7 +205,7 @@ export function CreateTaskPanel({ repos, runtimes }: { repos: ManagedRepo[]; run
       const response = await fetch("/api/tasks/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repo, title, description, runtimeId, run })
+        body: JSON.stringify({ repo, title, description, runtimeId, model, run })
       });
       const result = await readJson(response);
       setMessage(result.ok ? `${run ? "Created and ran" : "Created"} ${result.taskId}` : result.error);
@@ -225,6 +234,11 @@ export function CreateTaskPanel({ repos, runtimes }: { repos: ManagedRepo[]; run
         <select className="h-9 rounded-md border border-[#343727] bg-[#090a07] px-2 text-sm text-[#f8f1d0] md:col-span-2" value={runtimeId} onChange={(event) => setRuntimeId(event.target.value)}>
           {runtimes.map((runtime) => <option key={runtime.id} value={runtime.id}>{runtime.label} {runtime.enabled ? "" : "(disabled)"}</option>)}
         </select>
+        {(selectedRuntime?.models?.length ?? 0) > 0 ? (
+          <select className="h-9 rounded-md border border-[#343727] bg-[#090a07] px-2 text-sm text-[#f8f1d0] md:col-span-2" value={model} onChange={(event) => setModel(event.target.value)}>
+            {selectedRuntime?.models?.map((option) => <option key={option} value={option}>{option}</option>)}
+          </select>
+        ) : null}
         <textarea className="min-h-20 rounded-md border border-[#343727] bg-[#090a07] p-2 text-sm text-[#f8f1d0] md:col-span-2" placeholder="Describe the work to govern" value={description} onChange={(event) => setDescription(event.target.value)} />
         <button className="h-9 rounded-md border border-[var(--ag-line)] bg-[var(--ag-panel-2)] px-3 text-sm font-semibold text-[var(--ag-heading)] disabled:cursor-not-allowed disabled:bg-[#343727] disabled:text-[#8c8d7b]" disabled={busy || !repo || !title || !description} onClick={() => createTask(false)}>
           {busy ? "Creating" : "Create Task"}
@@ -239,8 +253,15 @@ export function CreateTaskPanel({ repos, runtimes }: { repos: ManagedRepo[]; run
 
 export function RunTaskButton({ taskId, runtimes }: { taskId: number; runtimes: RuntimeOption[] }) {
   const [runtimeId, setRuntimeId] = useState(runtimes.find((runtime) => runtime.enabled)?.id ?? runtimes[0]?.id ?? "");
+  const selectedRuntime = useMemo(() => runtimes.find((runtime) => runtime.id === runtimeId), [runtimeId, runtimes]);
+  const [model, setModel] = useState(selectedRuntime?.defaultModel ?? selectedRuntime?.models?.[0] ?? "");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    const nextRuntime = runtimes.find((runtime) => runtime.id === runtimeId);
+    setModel(nextRuntime?.defaultModel ?? nextRuntime?.models?.[0] ?? "");
+  }, [runtimeId, runtimes]);
 
   async function runTask() {
     setBusy(true);
@@ -249,7 +270,7 @@ export function RunTaskButton({ taskId, runtimes }: { taskId: number; runtimes: 
       const response = await fetch("/api/tasks/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ taskId, runtimeId })
+        body: JSON.stringify({ taskId, runtimeId, model })
       });
       const result = await readJson(response);
       setMessage(result.ok ? "Run started" : result.error);
@@ -266,6 +287,11 @@ export function RunTaskButton({ taskId, runtimes }: { taskId: number; runtimes: 
       <select className="h-8 rounded-md border border-[var(--ag-line)] bg-[var(--ag-surface)] px-2 text-xs text-[var(--ag-text)]" value={runtimeId} onChange={(event) => setRuntimeId(event.target.value)}>
         {runtimes.map((runtime) => <option key={runtime.id} value={runtime.id}>{runtime.label} {runtime.enabled ? "" : "(disabled)"}</option>)}
       </select>
+      {(selectedRuntime?.models?.length ?? 0) > 0 ? (
+        <select className="h-8 rounded-md border border-[var(--ag-line)] bg-[var(--ag-surface)] px-2 text-xs text-[var(--ag-text)]" value={model} onChange={(event) => setModel(event.target.value)}>
+          {selectedRuntime?.models?.map((option) => <option key={option} value={option}>{option}</option>)}
+        </select>
+      ) : null}
       <button className="h-8 rounded-md bg-[var(--ag-cyan)] px-3 text-xs font-semibold text-[#061018] disabled:opacity-50" disabled={busy || !runtimeId} onClick={runTask}>
         {busy ? "Running" : "Run next stage"}
       </button>

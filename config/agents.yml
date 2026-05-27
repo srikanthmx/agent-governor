@@ -42,9 +42,16 @@ agents:
     enabled: false
     detectCommand: codex
     command: sh
+    models:
+      - gpt-5.5
+      - gpt-5
+      - gpt-5-mini
+      - o3
+      - o4-mini
+    defaultModel: gpt-5.5
     args:
       - -lc
-      - 'codex exec --skip-git-repo-check --sandbox danger-full-access "$(cat "$AGENT_GOVERNOR_PROMPT_FILE")"'
+      - 'codex exec ${AGENT_GOVERNOR_MODEL:+--model "$AGENT_GOVERNOR_MODEL"} --skip-git-repo-check --sandbox danger-full-access "$(cat "$AGENT_GOVERNOR_PROMPT_FILE")"'
     capabilities:
       - requirements
       - design

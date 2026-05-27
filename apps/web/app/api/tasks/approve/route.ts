@@ -11,6 +11,7 @@ export async function POST(request: Request) {
     stage?: string;
     owner?: string;
     runtimeId?: string;
+    model?: string;
     autoRun?: boolean;
   };
   const taskId = String(body.taskId ?? "").replace(/^TASK-/i, "");
@@ -41,6 +42,9 @@ export async function POST(request: Request) {
     const runArgs = ["agent", "run-task", taskId];
     if (body.runtimeId) {
       runArgs.push("--runtime", body.runtimeId);
+    }
+    if (body.model) {
+      runArgs.push("--model", body.model);
     }
     const runResult = await execa("pnpm", runArgs, {
       cwd: projectRoot(process.cwd()),

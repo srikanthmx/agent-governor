@@ -8,6 +8,7 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({})) as {
     taskId?: string;
     runtimeId?: string;
+    model?: string;
   };
   const taskId = String(body.taskId ?? "").replace(/^TASK-/i, "");
   if (!taskId || Number.isNaN(Number(taskId))) {
@@ -17,6 +18,9 @@ export async function POST(request: Request) {
   const args = ["agent", "run-task", taskId];
   if (body.runtimeId) {
     args.push("--runtime", body.runtimeId);
+  }
+  if (body.model) {
+    args.push("--model", body.model);
   }
 
   const result = await execa("pnpm", args, {

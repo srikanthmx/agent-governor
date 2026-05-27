@@ -10,6 +10,7 @@ export async function POST(request: Request) {
     title?: string;
     description?: string;
     runtimeId?: string;
+    model?: string;
     run?: boolean;
   };
   if (!body.repo || !body.title || !body.description) {
@@ -38,6 +39,9 @@ export async function POST(request: Request) {
     const runArgs = ["agent", "run-task", taskId.replace(/^TASK-/i, "")];
     if (body.runtimeId) {
       runArgs.push("--runtime", body.runtimeId);
+    }
+    if (body.model) {
+      runArgs.push("--model", body.model);
     }
     const runResult = await execa("pnpm", runArgs, {
       cwd: projectRoot(process.cwd()),
