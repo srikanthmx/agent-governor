@@ -20,6 +20,7 @@ agents:
     label: OpenCode
     type: opencode
     enabled: false
+    detectCommand: opencode
     command: opencode
     args:
       - run
@@ -38,7 +39,8 @@ agents:
   - id: codex
     label: Local Codex
     type: shell
-    enabled: true
+    enabled: false
+    detectCommand: codex
     command: sh
     args:
       - -lc
@@ -58,6 +60,7 @@ agents:
     label: Local Claude
     type: shell
     enabled: false
+    detectCommand: claude
     command: sh
     args:
       - -lc
@@ -77,6 +80,7 @@ agents:
     label: Local Gemini
     type: shell
     enabled: false
+    detectCommand: gemini
     command: sh
     args:
       - -lc
@@ -96,6 +100,7 @@ agents:
     label: Aider
     type: aider
     enabled: false
+    detectCommand: aider
     capabilities:
       - implementation
 
@@ -103,6 +108,7 @@ agents:
     label: Cline
     type: cline
     enabled: false
+    detectCommand: cline
     capabilities:
       - design
       - review

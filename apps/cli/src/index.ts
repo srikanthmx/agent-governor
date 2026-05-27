@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { execa } from "execa";
 import { Command } from "commander";
-import { loadConfig, projectRoot } from "@agent-governor/config";
+import { detectLocalTools, loadConfig, projectRoot } from "@agent-governor/config";
 import { migrate, openDb, RepoRegistry, TaskStore } from "@agent-governor/db";
 import { ShellAdapter } from "@agent-governor/runtime";
 import { WorkflowEngine } from "@agent-governor/workflow";
@@ -162,7 +162,24 @@ program.command("list-runtimes").description("List configured runtime adapters")
     id: agent.id,
     type: agent.type,
     enabled: agent.enabled,
+    configured: agent.configuredEnabled,
+    detected: agent.detected,
+    detectCommand: agent.detectedCommand ?? "",
     capabilities: agent.capabilities.join(",")
+  })));
+});
+
+program.command("detect-local-tools").description("Detect local IDEs, agent CLIs, and bridge tools").action(() => {
+  const { config } = dbForCwd();
+  console.table(detectLocalTools(config.agents).map((tool) => ({
+    id: tool.id,
+    label: tool.label,
+    kind: tool.kind,
+    runnable: tool.runnable,
+    detected: tool.detected,
+    detectedBy: tool.detectedBy ?? "",
+    configured: tool.configured,
+    enabled: tool.enabled
   })));
 });
 

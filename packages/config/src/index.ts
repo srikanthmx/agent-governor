@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { dirname, parse, resolve } from "node:path";
 import YAML from "yaml";
 
@@ -26,9 +27,13 @@ export interface AgentConfig {
     type: "shell" | "opencode" | "cline" | "aider" | "hermes" | "api";
     enabled: boolean;
     command?: string;
+    detectCommand?: string;
     args?: string[];
     capabilities: string[];
     preferredRoles?: string[];
+    configuredEnabled?: boolean;
+    detected?: boolean;
+    detectedCommand?: string;
   }>;
   roles: Record<string, { preferred: string[]; fallback: string[] }>;
 }
@@ -55,11 +60,114 @@ export interface GovernorConfig {
   repos: ReposConfig;
 }
 
+export interface LocalToolCatalogItem {
+  id: string;
+  label: string;
+  kind: "agent" | "ide" | "cli" | "bridge";
+  runnable: boolean;
+  commandCandidates: string[];
+  appCandidates?: string[];
+  capabilities: string[];
+}
+
+export interface LocalToolDetection extends LocalToolCatalogItem {
+  detected: boolean;
+  detectedBy: string | null;
+  configured: boolean;
+  enabled: boolean;
+}
+
+export const localToolCatalog: LocalToolCatalogItem[] = [
+  { id: "codex", label: "Codex CLI", kind: "agent", runnable: true, commandCandidates: ["codex"], appCandidates: ["/Applications/Codex.app"], capabilities: ["requirements", "design", "implementation", "review"] },
+  { id: "claude", label: "Claude Code", kind: "agent", runnable: true, commandCandidates: ["claude"], capabilities: ["requirements", "design", "implementation", "review"] },
+  { id: "gemini", label: "Gemini CLI", kind: "agent", runnable: true, commandCandidates: ["gemini"], capabilities: ["requirements", "design", "implementation", "review"] },
+  { id: "opencode", label: "OpenCode", kind: "agent", runnable: true, commandCandidates: ["opencode"], capabilities: ["requirements", "design", "implementation", "review"] },
+  { id: "aider", label: "Aider", kind: "agent", runnable: true, commandCandidates: ["aider"], capabilities: ["implementation", "review"] },
+  { id: "cline", label: "Cline", kind: "ide", runnable: false, commandCandidates: ["cline"], capabilities: ["design", "review"] },
+  { id: "kiro", label: "Kiro", kind: "ide", runnable: false, commandCandidates: ["kiro"], appCandidates: ["/Applications/Kiro.app"], capabilities: ["design", "implementation", "review"] },
+  { id: "antigravity", label: "Google Antigravity", kind: "ide", runnable: false, commandCandidates: ["antigravity"], appCandidates: ["/Applications/Antigravity.app", "/Applications/Google Antigravity.app"], capabilities: ["design", "implementation", "review"] },
+  { id: "cursor", label: "Cursor", kind: "ide", runnable: false, commandCandidates: ["cursor"], appCandidates: ["/Applications/Cursor.app"], capabilities: ["design", "implementation", "review"] },
+  { id: "windsurf", label: "Windsurf", kind: "ide", runnable: false, commandCandidates: ["windsurf"], appCandidates: ["/Applications/Windsurf.app"], capabilities: ["design", "implementation", "review"] },
+  { id: "continue", label: "Continue", kind: "bridge", runnable: false, commandCandidates: ["continue"], capabilities: ["review"] },
+  { id: "zed", label: "Zed", kind: "ide", runnable: false, commandCandidates: ["zed"], appCandidates: ["/Applications/Zed.app"], capabilities: ["design", "implementation"] },
+  { id: "code", label: "VS Code", kind: "ide", runnable: false, commandCandidates: ["code"], appCandidates: ["/Applications/Visual Studio Code.app"], capabilities: ["design", "implementation"] },
+  { id: "jetbrains", label: "JetBrains IDE", kind: "ide", runnable: false, commandCandidates: ["idea", "webstorm", "pycharm"], appCandidates: ["/Applications/IntelliJ IDEA.app", "/Applications/WebStorm.app", "/Applications/PyCharm.app"], capabilities: ["design", "implementation"] },
+  { id: "gh", label: "GitHub CLI", kind: "cli", runnable: false, commandCandidates: ["gh"], capabilities: ["pr", "merge"] },
+  { id: "tmux", label: "tmux", kind: "cli", runnable: false, commandCandidates: ["tmux"], capabilities: ["terminal"] }
+];
+
 function readYaml<T>(path: string, fallback: T): T {
   if (!existsSync(path)) {
     return fallback;
   }
   return YAML.parse(readFileSync(path, "utf8")) as T;
+}
+
+const detectCommandByAgentId: Record<string, string> = {
+  aider: "aider",
+  claude: "claude",
+  cline: "cline",
+  codex: "codex",
+  gemini: "gemini",
+  opencode: "opencode"
+};
+
+function commandExists(command: string): boolean {
+  const result = spawnSync("sh", ["-lc", `command -v ${JSON.stringify(command)} >/dev/null 2>&1`], {
+    stdio: "ignore"
+  });
+  return result.status === 0;
+}
+
+function detectCatalogItem(item: LocalToolCatalogItem): { detected: boolean; detectedBy: string | null } {
+  for (const command of item.commandCandidates) {
+    if (commandExists(command)) {
+      return { detected: true, detectedBy: command };
+    }
+  }
+  for (const app of item.appCandidates ?? []) {
+    if (existsSync(app)) {
+      return { detected: true, detectedBy: app };
+    }
+  }
+  return { detected: false, detectedBy: null };
+}
+
+export function detectLocalTools(config?: AgentConfig): LocalToolDetection[] {
+  return localToolCatalog.map((item) => {
+    const detection = detectCatalogItem(item);
+    const configuredAgent = config?.agents.find((agent) => agent.id === item.id);
+    return {
+      ...item,
+      detected: detection.detected,
+      detectedBy: detection.detectedBy,
+      configured: Boolean(configuredAgent),
+      enabled: Boolean(configuredAgent?.enabled || configuredAgent?.detected || (item.runnable && detection.detected))
+    };
+  });
+}
+
+function detectionCommandFor(agent: AgentConfig["agents"][number]): string | undefined {
+  return agent.detectCommand ?? detectCommandByAgentId[agent.id] ?? (agent.command && agent.command !== "sh" ? agent.command : undefined);
+}
+
+function applyAgentDetection(agents: AgentConfig): AgentConfig {
+  return {
+    ...agents,
+    agents: agents.agents.map((agent) => {
+      const detectCommand = detectionCommandFor(agent);
+      const catalogMatch = localToolCatalog.find((item) => item.id === agent.id);
+      const catalogDetection = catalogMatch ? detectCatalogItem(catalogMatch) : { detected: false, detectedBy: null };
+      const detected = detectCommand ? commandExists(detectCommand) || catalogDetection.detected : catalogDetection.detected;
+      return {
+        ...agent,
+        configuredEnabled: agent.enabled,
+        enabled: Boolean(agent.enabled || detected),
+        detected,
+        detectedCommand: catalogDetection.detectedBy ?? detectCommand
+      };
+    })
+  };
 }
 
 export function projectRoot(cwd = process.cwd()): string {
@@ -101,10 +209,10 @@ export function loadConfig(root = projectRoot()): GovernorConfig {
     }
   });
 
-  const agents = readYaml<AgentConfig>(resolve(dir, "agents.yml"), {
+  const agents = applyAgentDetection(readYaml<AgentConfig>(resolve(dir, "agents.yml"), {
     agents: [],
     roles: {}
-  });
+  }));
   const workflows = readYaml<WorkflowConfig>(resolve(dir, "workflows.yml"), {
     workflows: {}
   });

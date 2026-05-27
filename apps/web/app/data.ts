@@ -1,4 +1,4 @@
-import { loadConfig } from "@agent-governor/config";
+import { detectLocalTools, loadConfig } from "@agent-governor/config";
 import { existsSync, readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";
@@ -6,8 +6,9 @@ import { join } from "node:path";
 export interface DashboardData {
   tasks: Array<{ id: number; title: string; description: string; repo: string; status: string; stage: string | null; runtime: string; pr: string | null }>;
   approvals: Array<{ taskId: number; stage: string; status: string }>;
-  runtimes: Array<{ id: string; label: string; type: string; enabled: boolean; command: string | null; args: string[]; capabilities: string[]; preferredRoles: string[] }>;
+  runtimes: Array<{ id: string; label: string; type: string; enabled: boolean; configuredEnabled: boolean; detected: boolean; detectedCommand: string | null; command: string | null; args: string[]; capabilities: string[]; preferredRoles: string[] }>;
   roles: Array<{ id: string; preferred: string[]; fallback: string[] }>;
+  localTools: ReturnType<typeof detectLocalTools>;
   repos: Array<{ id: number; name: string; github: string }>;
   githubRepos: Array<{ id: number; nameWithOwner: string; description: string; visibility: string; defaultBranch: string; url: string; updatedAt: string }>;
 }
@@ -152,6 +153,9 @@ export function getDashboardData(): DashboardData {
         label: agent.label,
         type: agent.type,
         enabled: agent.enabled,
+        configuredEnabled: agent.configuredEnabled ?? agent.enabled,
+        detected: agent.detected ?? false,
+        detectedCommand: agent.detectedCommand ?? null,
         command: agent.command ?? null,
         args: agent.args ?? [],
         capabilities: agent.capabilities,
@@ -162,6 +166,7 @@ export function getDashboardData(): DashboardData {
         preferred: route.preferred,
         fallback: route.fallback
       })),
+      localTools: detectLocalTools(config.agents),
       repos: repos.map((repo) => ({
         id: repo.id,
         name: repo.name,
@@ -228,6 +233,9 @@ export function getTaskDetail(taskId: number): TaskDetailData {
         label: agent.label,
         type: agent.type,
         enabled: agent.enabled,
+        configuredEnabled: agent.configuredEnabled ?? agent.enabled,
+        detected: agent.detected ?? false,
+        detectedCommand: agent.detectedCommand ?? null,
         command: agent.command ?? null,
         args: agent.args ?? [],
         capabilities: agent.capabilities,

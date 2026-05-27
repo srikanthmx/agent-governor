@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CreateTaskPanel, RepoWorkbench, RunTaskButton } from "./dashboard-actions";
 import { getDashboardData } from "./data";
 import { OrchestrationCanvas } from "./orchestration-canvas";
+import { RuntimeRescanButton } from "./runtime-rescan-button";
 import { ThemeSwitcher } from "./theme-switcher";
 
 function statusTone(status: string) {
@@ -51,7 +52,7 @@ const commands = [
 ];
 
 export default function Page() {
-  const { tasks, approvals, runtimes, roles, repos, githubRepos } = getDashboardData();
+  const { tasks, approvals, runtimes, roles, localTools, repos, githubRepos } = getDashboardData();
   const pendingApprovals = tasks.filter((task) => task.status.includes("WAITING")).length;
   const enabledRuntimes = runtimes.filter((runtime) => runtime.enabled).length;
   const connectedGithub = githubRepos.length;
@@ -151,7 +152,9 @@ export default function Page() {
                         {[
                           "Pick repo and create a task from Web or Telegram.",
                           "Choose Codex, Claude, Gemini, OpenCode, or Shell as the preferred runtime.",
-                          "Run next stage: requirements, design, then implementation in a git worktree.",
+                          "Run next stage: requirements, design, then implementation in the task git worktree.",
+                          "The prompt is written to a local prompt file and passed to the selected local CLI.",
+                          "No direct model API is called unless an API adapter is explicitly configured and selected.",
                           "Owner approvals gate implementation, PR open, and merge."
                         ].map((item, index) => (
                           <div className="grid grid-cols-[24px_1fr] gap-2" key={item}>
@@ -165,6 +168,7 @@ export default function Page() {
                 </section>
 
                 <AgentDirectory runtimes={runtimes} roles={roles} />
+                <LocalToolDirectory tools={localTools} />
 
                 <section className="ag-panel rounded-md border">
                   <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#343727] px-4 py-3">
@@ -332,7 +336,7 @@ function AgentDirectory({
   runtimes,
   roles
 }: {
-  runtimes: Array<{ id: string; label: string; type: string; enabled: boolean; command: string | null; args: string[]; capabilities: string[]; preferredRoles: string[] }>;
+  runtimes: Array<{ id: string; label: string; type: string; enabled: boolean; configuredEnabled: boolean; detected: boolean; detectedCommand: string | null; command: string | null; args: string[]; capabilities: string[]; preferredRoles: string[] }>;
   roles: Array<{ id: string; preferred: string[]; fallback: string[] }>;
 }) {
   return (
@@ -342,7 +346,10 @@ function AgentDirectory({
           <div className="ag-kicker text-xs uppercase">[ agents ]</div>
           <h2 className="mt-1 text-sm ag-section-title">Runtime Agents</h2>
         </div>
-        <div className="font-mono text-xs uppercase text-[#9b9b89]">{runtimes.filter((runtime) => runtime.enabled).length}/{runtimes.length} enabled</div>
+        <div className="flex items-center gap-3">
+          <RuntimeRescanButton />
+          <div className="font-mono text-xs uppercase text-[#9b9b89]">{runtimes.filter((runtime) => runtime.enabled).length}/{runtimes.length} usable</div>
+        </div>
       </div>
       <div className="grid gap-px bg-[#343727] p-px xl:grid-cols-4">
         {runtimes.map((runtime) => (
@@ -352,12 +359,15 @@ function AgentDirectory({
                 <div className="truncate text-sm font-semibold text-[var(--ag-heading)]">{runtime.label}</div>
                 <div className="mt-1 font-mono text-xs uppercase text-[#9b9b89]">{runtime.type}</div>
               </div>
-              <span className={runtime.enabled ? "rounded border border-[#b8ff65]/40 bg-[#b8ff65]/10 px-2 py-1 font-mono text-[10px] uppercase text-[#d6ff9f]" : "rounded border border-[#596044] bg-[#202316] px-2 py-1 font-mono text-[10px] uppercase text-[#8c8d7b]"}>
-                {runtime.enabled ? "online" : "off"}
+              <span className={runtime.enabled ? "rounded border border-[var(--ag-green)] bg-[var(--ag-panel-2)] px-2 py-1 font-mono text-[10px] uppercase text-[var(--ag-green)]" : "rounded border border-[var(--ag-line)] bg-[var(--ag-panel-2)] px-2 py-1 font-mono text-[10px] uppercase text-[var(--ag-muted)]"}>
+                {runtime.detected ? "detected" : runtime.enabled ? "configured" : "missing"}
               </span>
             </div>
             <div className="mt-4 min-h-10 text-xs text-[#9b9b89]">
               {runtime.command ? <span className="font-mono text-[var(--ag-soft)]">{[runtime.command, ...runtime.args].join(" ")}</span> : "placeholder adapter"}
+            </div>
+            <div className="mt-2 text-xs text-[var(--ag-muted)]">
+              {runtime.detectedCommand ? `${runtime.detected ? "Found" : "Looking for"} ${runtime.detectedCommand}` : "No local CLI detection"}
             </div>
             <div className="mt-4 flex flex-wrap gap-1.5">
               {runtime.capabilities.map((capability) => (
@@ -379,6 +389,56 @@ function AgentDirectory({
             <div className="font-mono text-xs uppercase text-[#ffca58]">{role.id}</div>
             <div className="mt-1 truncate text-xs text-[#d6cfaa]">preferred: {role.preferred.join(", ")}</div>
             <div className="mt-1 truncate text-xs text-[#9b9b89]">fallback: {role.fallback.join(", ")}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function LocalToolDirectory({
+  tools
+}: {
+  tools: Array<{ id: string; label: string; kind: string; runnable: boolean; detected: boolean; detectedBy: string | null; configured: boolean; enabled: boolean; capabilities: string[] }>;
+}) {
+  const detected = tools.filter((tool) => tool.detected);
+  return (
+    <section className="ag-panel rounded-md border">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--ag-line)] px-4 py-3">
+        <div>
+          <div className="ag-kicker text-xs uppercase">[ local scan ]</div>
+          <h2 className="mt-1 text-sm ag-section-title">Detected IDEs & Agents</h2>
+          <p className="mt-1 text-xs text-[var(--ag-muted)]">Detected runnable agents can execute prompts locally. Detected IDEs/bridges are shown as adapter candidates to add when a safe CLI bridge is available.</p>
+        </div>
+        <div className="font-mono text-xs uppercase text-[var(--ag-muted)]">{detected.length}/{tools.length} found locally</div>
+      </div>
+      <div className="grid gap-px bg-[var(--ag-line)] p-px md:grid-cols-2 xl:grid-cols-4">
+        {tools.map((tool) => (
+          <div className="bg-[var(--ag-surface)] p-3" key={tool.id}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold text-[var(--ag-heading)]">{tool.label}</div>
+                <div className="mt-1 font-mono text-[10px] uppercase text-[var(--ag-muted)]">{tool.kind}{tool.runnable ? " / prompt runnable" : " / integration candidate"}</div>
+              </div>
+              <span className={tool.detected ? "rounded border border-[var(--ag-green)] bg-[var(--ag-panel-2)] px-2 py-1 font-mono text-[10px] uppercase text-[var(--ag-green)]" : "rounded border border-[var(--ag-line)] bg-[var(--ag-panel-2)] px-2 py-1 font-mono text-[10px] uppercase text-[var(--ag-muted)]"}>
+                {tool.detected ? "found" : "missing"}
+              </span>
+            </div>
+            <div className="mt-3 min-h-8 text-xs text-[var(--ag-muted)]">{tool.detectedBy ?? "Install locally to enable discovery."}</div>
+            <div className="mt-3 flex flex-wrap gap-1">
+              {tool.capabilities.slice(0, 3).map((capability) => (
+                <span className="rounded border border-[var(--ag-line)] bg-[var(--ag-panel)] px-1.5 py-0.5 font-mono text-[10px] uppercase text-[var(--ag-soft)]" key={capability}>{capability}</span>
+              ))}
+            </div>
+            <div className="mt-3 border-t border-[var(--ag-line)] pt-2 text-xs text-[var(--ag-muted)]">
+              {tool.runnable
+                ? tool.detected
+                  ? "Available for local prompt routing."
+                  : "Install locally to make it selectable."
+                : tool.detected
+                  ? "Available locally. Add a CLI bridge before routing prompts."
+                  : "Not found locally yet."}
+            </div>
           </div>
         ))}
       </div>
