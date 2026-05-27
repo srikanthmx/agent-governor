@@ -8,7 +8,8 @@ paths:
 
 telegram:
   botToken:
-  ownerTelegramIds: []
+  ownerTelegramIds:
+    - web
 
 github:
   owner:
