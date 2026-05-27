@@ -44,6 +44,7 @@ export interface RuntimeRunInput {
 
 export interface RuntimeRunResult {
   runId: string;
+  runtimeId?: string;
   status: RuntimeRunStatus;
   artifacts: string[];
   logsPath: string;

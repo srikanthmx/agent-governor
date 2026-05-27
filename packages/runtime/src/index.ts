@@ -94,6 +94,7 @@ export class ShellAdapter implements RuntimeAdapter {
 
     return {
       runId,
+      runtimeId: this.id,
       status: exitCode === 0 ? "success" : "failed",
       artifacts,
       logsPath: runDir,
@@ -126,6 +127,7 @@ export class PlaceholderAdapter implements RuntimeAdapter {
   async run(): Promise<RuntimeRunResult> {
     return {
       runId: randomUUID(),
+      runtimeId: this.id,
       status: "failed",
       artifacts: [],
       logsPath: "",
@@ -162,12 +164,13 @@ export class RuntimeRouter {
       }
       const result = await adapter.run(input.runInput);
       if (result.status === "success") {
-        return result;
+        return { ...result, runtimeId: result.runtimeId ?? adapter.id };
       }
       failures.push(`${id}: ${result.error ?? result.status}`);
     }
     return {
       runId: randomUUID(),
+      runtimeId: undefined,
       status: "failed",
       artifacts: [],
       logsPath: "",

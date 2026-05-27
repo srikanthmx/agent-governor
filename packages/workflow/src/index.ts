@@ -448,7 +448,7 @@ export class WorkflowEngine {
       taskId: input.task.id,
       stage: input.stage,
       role: stageConfig.role,
-      runtimeId: result.runId,
+      runtimeId: result.runtimeId ?? result.runId,
       status: result.status,
       logsPath: result.logsPath,
       startedAt,

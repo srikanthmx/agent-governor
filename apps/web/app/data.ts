@@ -29,6 +29,7 @@ export interface TaskDetailData {
   artifacts: Array<{ name: string; content: string }>;
   approvals: Array<{ stage: string; status: string; approvedBy: string | null; comment: string | null; createdAt: string }>;
   diff: { status: string; stat: string; patch: string } | null;
+  runs: Array<{ stage: string; role: string; runtimeId: string; status: string; logsPath: string; startedAt: string; finishedAt: string | null; error: string | null }>;
   runtimes: DashboardData["runtimes"];
 }
 
@@ -249,11 +250,26 @@ export function getTaskDetail(taskId: number): TaskDetailData {
       }
     }
 
+    const runs = db.prepare(`
+      SELECT stage,
+             role,
+             runtime_id AS runtimeId,
+             status,
+             logs_path AS logsPath,
+             started_at AS startedAt,
+             finished_at AS finishedAt,
+             error
+      FROM agent_runs
+      WHERE task_id = ?
+      ORDER BY started_at DESC
+    `).all(taskId) as TaskDetailData["runs"];
+
     return {
       task,
       artifacts,
       approvals,
       diff: getWorktreeDiff(task?.worktree),
+      runs,
       runtimes: config.agents.agents.map((agent) => ({
         id: agent.id,
         label: agent.label,

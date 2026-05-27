@@ -54,7 +54,7 @@ function approvalStageForStatus(status: string): string | null {
 }
 
 export default function TaskPage({ params }: { params: { taskId: string } }) {
-  const { task, artifacts, approvals, diff, runtimes } = getTaskDetail(Number(params.taskId));
+  const { task, artifacts, approvals, diff, runs, runtimes } = getTaskDetail(Number(params.taskId));
 
   if (!task) {
     return (
@@ -213,6 +213,29 @@ export default function TaskPage({ params }: { params: { taskId: string } }) {
         {/* Sidebar — approvals + info */}
         <div className="space-y-4">
           {/* Approval history */}
+          <div className="ag-card p-4">
+            <div className="ag-section-label mb-3">Agent runs</div>
+            {runs.length === 0 ? (
+              <p className="text-[12px] text-[var(--ag-text-4)]">No runtime runs recorded yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {runs.map((run) => (
+                  <div className="rounded-md border border-[var(--ag-border)] bg-[var(--ag-bg)] p-3" key={`${run.stage}-${run.startedAt}`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[12px] font-medium text-[var(--ag-text-1)] capitalize">{run.stage}</span>
+                      <span className={run.status === "success" ? "text-[11px] text-[var(--ag-green)]" : "text-[11px] text-[var(--ag-red)]"}>{run.status}</span>
+                    </div>
+                    <div className="mt-2 grid gap-1 text-[11px] text-[var(--ag-text-4)]">
+                      <div>Runtime: <span className="font-mono text-[var(--ag-text-2)]">{run.runtimeId}</span></div>
+                      <div>Role: <span className="font-mono text-[var(--ag-text-2)]">{run.role}</span></div>
+                      <div className="break-all">Logs: <span className="font-mono text-[var(--ag-text-2)]">{run.logsPath}</span></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="ag-card p-4">
             <div className="ag-section-label mb-3">Approvals</div>
             {approvals.length === 0 ? (
