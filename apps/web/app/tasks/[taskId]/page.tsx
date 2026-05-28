@@ -69,6 +69,7 @@ export default function TaskPage({ params }: { params: { taskId: string } }) {
   const isTerminal = ["MERGED", "REJECTED"].includes(task.status);
   const canRun = ["NEW", "CONTEXT_READY", "FIXING"].includes(task.status);
   const approvalStage = approvalStageForStatus(task.status);
+  const runnableRuntimes = runtimes.filter((runtime) => runtime.enabled);
 
   // Pipeline state class
   function pipelineClass(stageStatuses: string[]) {
@@ -215,20 +216,18 @@ export default function TaskPage({ params }: { params: { taskId: string } }) {
           <div className="ag-card p-4">
             <div className="ag-section-label mb-3">Runnable agents</div>
             <div className="space-y-2">
-              {runtimes.map((runtime) => (
+              {runnableRuntimes.map((runtime) => (
                 <div key={runtime.id} className="flex items-center justify-between gap-3 rounded-md border border-[var(--ag-border)] bg-[var(--ag-bg)] px-3 py-2">
                   <div className="min-w-0">
                     <div className="truncate text-[12px] font-medium text-[var(--ag-text-1)]">{runtime.label}</div>
                     <div className="mt-0.5 truncate font-mono text-[10px] text-[var(--ag-text-4)]">{runtime.command ?? runtime.type}</div>
                   </div>
-                  <span className={`shrink-0 text-[10px] font-semibold uppercase ${runtime.enabled ? "text-[var(--ag-green)]" : runtime.detected ? "text-[var(--ag-amber)]" : "text-[var(--ag-text-4)]"}`}>
-                    {runtime.enabled ? "Runnable" : runtime.detected ? "Detected" : "Off"}
-                  </span>
+                  <span className="shrink-0 text-[10px] font-semibold uppercase text-[var(--ag-green)]">Runnable</span>
                 </div>
               ))}
             </div>
             <p className="mt-3 text-[11px] leading-relaxed text-[var(--ag-text-4)]">
-              Task runs only use runnable adapters. Detected IDEs need a CLI or bridge adapter before Agent Governor can route prompts to them.
+              Only these adapters can receive prompts today. Other detected IDEs are hidden here until a real CLI or bridge adapter exists.
             </p>
           </div>
 
