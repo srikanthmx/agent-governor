@@ -7,6 +7,7 @@
   "scripts": {
     "agent": "pnpm --filter @agent-governor/cli agent",
     "build": "pnpm -r build",
+    "desktop": "pnpm --filter @agent-governor/desktop dev",
     "dev": "pnpm --parallel dev",
     "doctor": "pnpm agent doctor",
     "lint": "pnpm -r lint",

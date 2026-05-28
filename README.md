@@ -11,6 +11,7 @@ flowchart LR
   Telegram["Telegram Bot"] --> API["Governance Core"]
   CLI["CLI"] --> API
   Web["Web UI"] --> API
+  Desktop["Desktop App"] --> Web
   API --> DB["SQLite"]
   API --> Repo["Repo Registry"]
   API --> Approval["Approval Engine"]
@@ -40,6 +41,20 @@ pnpm install
 pnpm agent setup
 pnpm agent doctor
 ```
+
+## Desktop App
+
+Run Agent Governor as a local desktop app:
+
+```bash
+pnpm desktop
+```
+
+The desktop app starts or reuses the local Next.js UI on `http://localhost:3002` and opens it in an Electron shell. Runtime execution still happens locally on this Mac through the same CLI adapters, git worktrees, SQLite database, logs, and GitHub CLI integration.
+
+This is the honest product boundary:
+- CLI/headless tools such as Codex, Claude Code, Gemini CLI, OpenCode, Aider, and Shell can become runnable adapters when installed and authenticated locally.
+- GUI-only tools are not runnable agents until they expose a CLI, local API, extension bridge, MCP/ACP-style bridge, or another documented prompt interface.
 
 ## Configuration
 
