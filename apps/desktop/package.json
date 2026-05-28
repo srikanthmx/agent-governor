@@ -1,14 +1,34 @@
 {
   "name": "@agent-governor/desktop",
+  "productName": "Agent Governor",
   "version": "0.1.0",
   "private": true,
   "main": "src/main.cjs",
   "scripts": {
+    "dist": "electron-builder --mac dir",
     "dev": "electron .",
     "start": "electron .",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
+  "build": {
+    "appId": "dev.agent-governor.desktop",
+    "productName": "Agent Governor",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        "dir"
+      ]
+    }
+  },
   "devDependencies": {
-    "electron": "^31.7.7"
+    "electron": "^31.7.7",
+    "electron-builder": "^26.8.1"
   }
 }
