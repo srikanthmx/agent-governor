@@ -60,6 +60,22 @@ program.command("list-repos").description("List registered repositories").action
   db.close();
 });
 
+program.command("list-tasks").description("List tasks").action(() => {
+  const { db } = dbForCwd();
+  const repos = new RepoRegistry(db).listRepos();
+  const repoById = new Map(repos.map((repo) => [repo.id, repo.name]));
+  const tasks = new TaskStore(db).listTasks();
+  console.table(tasks.map((task) => ({
+    id: `TASK-${task.id}`,
+    repo: repoById.get(task.repo_id) ?? task.repo_id,
+    status: task.status,
+    stage: task.current_stage ?? "",
+    pr: task.pr_url ?? "",
+    title: task.title
+  })));
+  db.close();
+});
+
 program
   .command("sync-github-repos")
   .description("Pull GitHub repositories through gh and cache them locally")
@@ -309,8 +325,28 @@ program.command("logs <taskId>").description("Show the expected logs path for a 
   console.log(resolve(config.app.paths.logs, `TASK-${String(taskId).replace(/^TASK-/i, "")}`));
 });
 
+program.command("status <taskId>").description("Show task status, repo, worktree, PR, and logs path").action((taskId) => {
+  const { config, db } = dbForCwd();
+  const id = Number(String(taskId).replace(/^TASK-/i, ""));
+  const task = new TaskStore(db).getTask(id);
+  const repo = new RepoRegistry(db).getRepo(task.repo_id);
+  console.log(`TASK-${task.id}`);
+  console.log(`Title: ${task.title}`);
+  console.log(`Repo: ${repo.name} (${repo.github_owner}/${repo.github_repo})`);
+  console.log(`Status: ${task.status}`);
+  console.log(`Stage: ${task.current_stage ?? "none"}`);
+  console.log(`Branch: ${task.branch_name ?? "none"}`);
+  console.log(`Worktree: ${task.worktree_path ?? "none"}`);
+  console.log(`PR: ${task.pr_url ?? "none"}`);
+  console.log(`Logs: ${resolve(config.app.paths.logs, `TASK-${task.id}`)}`);
+  db.close();
+});
+
 program.command("start").description("Print service start instructions").action(() => {
-  console.log("Use `pnpm --filter @agent-governor/bot start`, `pnpm --filter @agent-governor/worker start`, and `pnpm --filter @agent-governor/web dev`.");
+  console.log("Desktop: pnpm desktop");
+  console.log("Web: pnpm --filter @agent-governor/web dev -- -p 3002");
+  console.log("Bot: pnpm --filter @agent-governor/bot start");
+  console.log("Worker: pnpm --filter @agent-governor/worker start");
 });
 
 const worker = program.command("worker").description("Worker commands");
