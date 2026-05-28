@@ -77,6 +77,9 @@ export interface LocalToolDetection extends LocalToolCatalogItem {
   detectedBy: string | null;
   configured: boolean;
   enabled: boolean;
+  promptRunnable: boolean;
+  status: "runnable" | "missing_cli" | "bridge_required" | "disabled";
+  reason: string;
 }
 
 export const localToolCatalog: LocalToolCatalogItem[] = [
@@ -121,6 +124,86 @@ function commandExists(command: string): boolean {
   return result.status === 0;
 }
 
+function commandOutput(command: string, args: string[]): { ok: boolean; output: string } {
+  const result = spawnSync(command, args, {
+    encoding: "utf8",
+    timeout: 10_000
+  });
+  return {
+    ok: result.status === 0,
+    output: [result.stdout, result.stderr].filter(Boolean).join("\n")
+  };
+}
+
+function promptCapabilityCheck(id: string, command: string): { ok: boolean; reason: string } {
+  if (id === "codex") {
+    const result = commandOutput(command, ["exec", "--help"]);
+    return {
+      ok: result.ok && result.output.includes("Run Codex non-interactively"),
+      reason: result.ok ? "codex exec is available" : "codex exec is not available"
+    };
+  }
+  if (["claude", "gemini", "opencode", "aider"].includes(id)) {
+    const result = commandOutput(command, ["--help"]);
+    return {
+      ok: result.ok,
+      reason: result.ok ? `${command} CLI is available` : `${command} CLI did not respond to --help`
+    };
+  }
+  return { ok: true, reason: `${command} exists` };
+}
+
+function verifyCatalogItem(item: LocalToolCatalogItem, config?: AgentConfig): LocalToolDetection {
+  const configuredAgent = config?.agents.find((agent) => agent.id === item.id);
+  const commandCandidates = [
+    configuredAgent?.detectCommand,
+    ...(configuredAgent?.command && configuredAgent.command !== "sh" ? [configuredAgent.command] : []),
+    ...item.commandCandidates
+  ].filter((value): value is string => Boolean(value));
+  const detectedCommand = commandCandidates.find((command) => commandExists(command)) ?? null;
+  const appDetection = detectCatalogItem({ ...item, commandCandidates: [] });
+  const detectedBy = detectedCommand ?? appDetection.detectedBy;
+  const detected = Boolean(detectedBy);
+
+  if (!item.runnable) {
+    return {
+      ...item,
+      detected,
+      detectedBy,
+      configured: Boolean(configuredAgent),
+      enabled: false,
+      promptRunnable: false,
+      status: detected ? "bridge_required" : "disabled",
+      reason: detected ? "Detected locally, but no prompt bridge is configured" : "Not found locally"
+    };
+  }
+
+  if (!detectedCommand) {
+    return {
+      ...item,
+      detected,
+      detectedBy,
+      configured: Boolean(configuredAgent),
+      enabled: false,
+      promptRunnable: false,
+      status: "missing_cli",
+      reason: detectedBy ? "App found, but no prompt-capable CLI command is on PATH" : "No prompt-capable CLI command found"
+    };
+  }
+
+  const promptCheck = promptCapabilityCheck(item.id, detectedCommand);
+  return {
+    ...item,
+    detected: true,
+    detectedBy: detectedCommand,
+    configured: Boolean(configuredAgent),
+    enabled: promptCheck.ok,
+    promptRunnable: promptCheck.ok,
+    status: promptCheck.ok ? "runnable" : "missing_cli",
+    reason: promptCheck.reason
+  };
+}
+
 function detectCatalogItem(item: LocalToolCatalogItem): { detected: boolean; detectedBy: string | null } {
   for (const command of item.commandCandidates) {
     if (commandExists(command)) {
@@ -136,17 +219,7 @@ function detectCatalogItem(item: LocalToolCatalogItem): { detected: boolean; det
 }
 
 export function detectLocalTools(config?: AgentConfig): LocalToolDetection[] {
-  return localToolCatalog.map((item) => {
-    const detection = detectCatalogItem(item);
-    const configuredAgent = config?.agents.find((agent) => agent.id === item.id);
-    return {
-      ...item,
-      detected: detection.detected,
-      detectedBy: detection.detectedBy,
-      configured: Boolean(configuredAgent),
-      enabled: Boolean(configuredAgent?.enabled || configuredAgent?.detected || (item.runnable && detection.detected))
-    };
-  });
+  return localToolCatalog.map((item) => verifyCatalogItem(item, config));
 }
 
 function detectionCommandFor(agent: AgentConfig["agents"][number]): string | undefined {
@@ -160,13 +233,15 @@ function applyAgentDetection(agents: AgentConfig): AgentConfig {
       const detectCommand = detectionCommandFor(agent);
       const catalogMatch = localToolCatalog.find((item) => item.id === agent.id);
       const catalogDetection = catalogMatch ? detectCatalogItem(catalogMatch) : { detected: false, detectedBy: null };
-      const detected = detectCommand ? commandExists(detectCommand) || catalogDetection.detected : catalogDetection.detected;
+      const commandDetected = detectCommand ? commandExists(detectCommand) : false;
+      const verified = catalogMatch ? verifyCatalogItem(catalogMatch, agents) : null;
+      const detected = commandDetected || (!catalogMatch?.runnable && catalogDetection.detected);
       return {
         ...agent,
         configuredEnabled: agent.enabled,
-        enabled: Boolean(agent.enabled || detected),
+        enabled: Boolean(verified?.promptRunnable || (!catalogMatch && agent.enabled && detected)),
         detected,
-        detectedCommand: catalogDetection.detectedBy ?? detectCommand
+        detectedCommand: commandDetected ? detectCommand : (catalogDetection.detectedBy ?? undefined)
       };
     })
   };

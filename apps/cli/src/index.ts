@@ -197,7 +197,23 @@ program.command("detect-local-tools").description("Detect local IDEs, agent CLIs
     detected: tool.detected,
     detectedBy: tool.detectedBy ?? "",
     configured: tool.configured,
-    enabled: tool.enabled
+    enabled: tool.enabled,
+    promptRunnable: tool.promptRunnable,
+    status: tool.status,
+    reason: tool.reason
+  })));
+});
+
+program.command("verify-agents").description("Verify which local tools can actually receive prompts").action(() => {
+  const { config } = dbForCwd();
+  const tools = detectLocalTools(config.agents).filter((tool) => tool.kind === "agent" || tool.kind === "ide" || tool.kind === "bridge");
+  console.table(tools.map((tool) => ({
+    id: tool.id,
+    label: tool.label,
+    detectedBy: tool.detectedBy ?? "",
+    promptRunnable: tool.promptRunnable,
+    status: tool.status,
+    reason: tool.reason
   })));
 });
 
