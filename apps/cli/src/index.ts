@@ -200,7 +200,9 @@ program.command("detect-local-tools").description("Detect local IDEs, agent CLIs
     enabled: tool.enabled,
     promptRunnable: tool.promptRunnable,
     status: tool.status,
-    reason: tool.reason
+    reason: tool.reason,
+    install: tool.installCommand ?? "",
+    docs: tool.installUrl ?? ""
   })));
 });
 
@@ -213,7 +215,9 @@ program.command("verify-agents").description("Verify which local tools can actua
     detectedBy: tool.detectedBy ?? "",
     promptRunnable: tool.promptRunnable,
     status: tool.status,
-    reason: tool.reason
+    reason: tool.reason,
+    install: tool.installCommand ?? "",
+    docs: tool.installUrl ?? ""
   })));
 });
 
