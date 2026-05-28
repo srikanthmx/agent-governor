@@ -1,8 +1,8 @@
 agents:
   - id: shell
-    label: Shell Adapter
+    label: Shell Diagnostic
     type: shell
-    enabled: true
+    enabled: false
     command: sh
     args:
       - -lc
