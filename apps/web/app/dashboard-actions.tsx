@@ -184,19 +184,20 @@ export function RepoWorkbench({ githubRepos, managedRepos }: { githubRepos: Gith
 }
 
 export function CreateTaskPanel({ repos, runtimes }: { repos: ManagedRepo[]; runtimes: RuntimeOption[] }) {
+  const runnableRuntimes = runtimes.filter((runtime) => runtime.enabled);
   const [repo, setRepo] = useState(repos[0]?.name ?? "");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [runtimeId, setRuntimeId] = useState(runtimes.find((runtime) => runtime.enabled)?.id ?? runtimes[0]?.id ?? "");
-  const selectedRuntime = useMemo(() => runtimes.find((runtime) => runtime.id === runtimeId), [runtimeId, runtimes]);
+  const [runtimeId, setRuntimeId] = useState(runnableRuntimes[0]?.id ?? "");
+  const selectedRuntime = useMemo(() => runnableRuntimes.find((runtime) => runtime.id === runtimeId), [runtimeId, runnableRuntimes]);
   const [model, setModel] = useState(selectedRuntime?.defaultModel ?? selectedRuntime?.models?.[0] ?? "");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    const nextRuntime = runtimes.find((runtime) => runtime.id === runtimeId);
+    const nextRuntime = runnableRuntimes.find((runtime) => runtime.id === runtimeId);
     setModel(nextRuntime?.defaultModel ?? nextRuntime?.models?.[0] ?? "");
-  }, [runtimeId, runtimes]);
+  }, [runtimeId, runnableRuntimes]);
 
   async function createTask(run = false) {
     setBusy(true);
@@ -232,7 +233,7 @@ export function CreateTaskPanel({ repos, runtimes }: { repos: ManagedRepo[]; run
         </select>
         <input className="h-9 rounded-md border border-[#343727] bg-[#090a07] px-2 text-sm text-[#f8f1d0]" placeholder="Task title" value={title} onChange={(event) => setTitle(event.target.value)} />
         <select className="h-9 rounded-md border border-[#343727] bg-[#090a07] px-2 text-sm text-[#f8f1d0] md:col-span-2" value={runtimeId} onChange={(event) => setRuntimeId(event.target.value)}>
-          {runtimes.map((runtime) => <option key={runtime.id} value={runtime.id}>{runtime.label} {runtime.enabled ? "" : "(disabled)"}</option>)}
+          {runnableRuntimes.map((runtime) => <option key={runtime.id} value={runtime.id}>{runtime.label}</option>)}
         </select>
         {(selectedRuntime?.models?.length ?? 0) > 0 ? (
           <select className="h-9 rounded-md border border-[#343727] bg-[#090a07] px-2 text-sm text-[#f8f1d0] md:col-span-2" value={model} onChange={(event) => setModel(event.target.value)}>
@@ -252,16 +253,17 @@ export function CreateTaskPanel({ repos, runtimes }: { repos: ManagedRepo[]; run
 }
 
 export function RunTaskButton({ taskId, runtimes }: { taskId: number; runtimes: RuntimeOption[] }) {
-  const [runtimeId, setRuntimeId] = useState(runtimes.find((runtime) => runtime.enabled)?.id ?? runtimes[0]?.id ?? "");
-  const selectedRuntime = useMemo(() => runtimes.find((runtime) => runtime.id === runtimeId), [runtimeId, runtimes]);
+  const runnableRuntimes = runtimes.filter((runtime) => runtime.enabled);
+  const [runtimeId, setRuntimeId] = useState(runnableRuntimes[0]?.id ?? "");
+  const selectedRuntime = useMemo(() => runnableRuntimes.find((runtime) => runtime.id === runtimeId), [runtimeId, runnableRuntimes]);
   const [model, setModel] = useState(selectedRuntime?.defaultModel ?? selectedRuntime?.models?.[0] ?? "");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    const nextRuntime = runtimes.find((runtime) => runtime.id === runtimeId);
+    const nextRuntime = runnableRuntimes.find((runtime) => runtime.id === runtimeId);
     setModel(nextRuntime?.defaultModel ?? nextRuntime?.models?.[0] ?? "");
-  }, [runtimeId, runtimes]);
+  }, [runtimeId, runnableRuntimes]);
 
   async function runTask() {
     setBusy(true);
@@ -285,7 +287,7 @@ export function RunTaskButton({ taskId, runtimes }: { taskId: number; runtimes: 
   return (
     <div className="grid gap-2">
       <select className="h-8 rounded-md border border-[var(--ag-line)] bg-[var(--ag-surface)] px-2 text-xs text-[var(--ag-text)]" value={runtimeId} onChange={(event) => setRuntimeId(event.target.value)}>
-        {runtimes.map((runtime) => <option key={runtime.id} value={runtime.id}>{runtime.label} {runtime.enabled ? "" : "(disabled)"}</option>)}
+        {runnableRuntimes.map((runtime) => <option key={runtime.id} value={runtime.id}>{runtime.label}</option>)}
       </select>
       {(selectedRuntime?.models?.length ?? 0) > 0 ? (
         <select className="h-8 rounded-md border border-[var(--ag-line)] bg-[var(--ag-surface)] px-2 text-xs text-[var(--ag-text)]" value={model} onChange={(event) => setModel(event.target.value)}>
