@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type Repo = { id: number; name: string; github: string };
-type Runtime = { id: string; label: string; enabled: boolean; models?: string[]; defaultModel?: string | null };
+type Runtime = { id: string; label: string; enabled: boolean; models?: string[]; defaultModel?: string | null; executionMode?: "headless" | "interactive" };
 
 export function PromptHero({ repos, runtimes }: { repos: Repo[]; runtimes: Runtime[] }) {
   const enabledRuntimes = useMemo(() => runtimes.filter((runtime) => runtime.enabled), [runtimes]);
@@ -34,6 +34,27 @@ export function PromptHero({ repos, runtimes }: { repos: Repo[]; runtimes: Runti
     setBusy(true);
     setMessage(null);
     try {
+      if (selectedRuntime?.executionMode === "interactive") {
+        const res = await fetch("/api/agents/launch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            repo,
+            prompt: prompt.trim(),
+            runtimeId
+          }),
+        });
+        const text = await res.text();
+        const result = text ? JSON.parse(text) : { ok: false, error: "Empty response" };
+        if (result.ok) {
+          setMessage({ text: `Opened ${selectedRuntime.label}`, ok: true });
+          setPrompt("");
+        } else {
+          setMessage({ text: result.error || "Failed to launch agent", ok: false });
+        }
+        return;
+      }
+
       const res = await fetch("/api/tasks/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -155,7 +176,7 @@ export function PromptHero({ repos, runtimes }: { repos: Repo[]; runtimes: Runti
                 </span>
               ) : (
                 <>
-                  Go
+                  {selectedRuntime?.executionMode === "interactive" ? "Open" : "Go"}
                   <kbd className="ml-1 text-[10px] opacity-60 font-mono">⌘↵</kbd>
                 </>
               )}

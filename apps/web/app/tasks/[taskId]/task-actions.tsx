@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-type Runtime = { id: string; label: string; enabled: boolean; models?: string[]; defaultModel?: string | null };
+type Runtime = { id: string; label: string; enabled: boolean; models?: string[]; defaultModel?: string | null; executionMode?: "headless" | "interactive" };
 
 function stageLabel(stage: string | null) {
   if (!stage) return "";
@@ -32,21 +32,22 @@ export function TaskActions({
 }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
-  const [runtimeId, setRuntimeId] = useState(runtimes.find((r) => r.enabled)?.id ?? "");
-  const selectedRuntime = useMemo(() => runtimes.find((runtime) => runtime.id === runtimeId), [runtimeId, runtimes]);
+  const headlessRuntimes = useMemo(() => runtimes.filter((runtime) => runtime.enabled && runtime.executionMode !== "interactive"), [runtimes]);
+  const [runtimeId, setRuntimeId] = useState(headlessRuntimes[0]?.id ?? "");
+  const selectedRuntime = useMemo(() => headlessRuntimes.find((runtime) => runtime.id === runtimeId), [runtimeId, headlessRuntimes]);
   const [model, setModel] = useState(selectedRuntime?.defaultModel ?? selectedRuntime?.models?.[0] ?? "");
   const [showMore, setShowMore] = useState(false);
 
   const label = stageLabel(approvalStage);
-  const enabled = runtimes.filter((r) => r.enabled);
+  const enabled = headlessRuntimes;
   const isPlanningGate = approvalStage === "requirements" || approvalStage === "design";
   const isPrGate = approvalStage === "pr";
   const modelOptions = selectedRuntime?.models ?? [];
 
   useEffect(() => {
-    const nextRuntime = runtimes.find((runtime) => runtime.id === runtimeId);
+    const nextRuntime = headlessRuntimes.find((runtime) => runtime.id === runtimeId);
     setModel(nextRuntime?.defaultModel ?? nextRuntime?.models?.[0] ?? "");
-  }, [runtimeId, runtimes]);
+  }, [runtimeId, headlessRuntimes]);
 
   async function doAction(url: string, body: Record<string, unknown>) {
     setBusy(true);

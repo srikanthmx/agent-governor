@@ -120,6 +120,21 @@ agents:
       - design
       - review
 
+  - id: antigravity
+    label: Google Antigravity
+    type: shell
+    enabled: false
+    detectCommand: antigravity
+    command: sh
+    executionMode: interactive
+    args:
+      - -lc
+      - 'antigravity chat --mode agent --reuse-window "$(cat "$AGENT_GOVERNOR_PROMPT_FILE")"'
+    capabilities:
+      - interactive
+    preferredRoles:
+      - interactive
+
 roles:
   requirements_writer:
     preferred: [codex, claude, gemini, opencode, shell]

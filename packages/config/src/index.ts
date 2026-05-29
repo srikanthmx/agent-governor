@@ -31,6 +31,7 @@ export interface AgentConfig {
     args?: string[];
     models?: string[];
     defaultModel?: string;
+    executionMode?: "headless" | "interactive";
     capabilities: string[];
     preferredRoles?: string[];
     configuredEnabled?: boolean;
@@ -70,6 +71,7 @@ export interface LocalToolCatalogItem {
   commandCandidates: string[];
   appCandidates?: string[];
   capabilities: string[];
+  executionMode?: "headless" | "interactive";
   installCommand?: string;
   installUrl?: string;
   setupCommand?: string;
@@ -100,7 +102,7 @@ export const localToolCatalog: LocalToolCatalogItem[] = [
   { id: "cline", label: "Cline", kind: "ide", runnable: false, commandCandidates: ["cline"], capabilities: ["design", "review"], installUrl: "https://cline.bot/", notes: "IDE extension; needs a bridge before Agent Governor can route prompts." },
   { id: "roo-code", label: "Roo Code", kind: "ide", runnable: false, commandCandidates: ["roo"], capabilities: ["design", "implementation", "review"], installUrl: "https://roocode.com/", notes: "IDE extension; needs a bridge before prompt routing." },
   { id: "kiro", label: "Kiro", kind: "ide", runnable: false, commandCandidates: ["kiro"], appCandidates: ["/Applications/Kiro.app"], capabilities: ["design", "implementation", "review"], installUrl: "https://kiro.dev/", notes: "GUI IDE agent; bridge required for remote prompt routing." },
-  { id: "antigravity", label: "Google Antigravity", kind: "ide", runnable: false, commandCandidates: ["antigravity"], appCandidates: ["/Applications/Antigravity.app", "/Applications/Google Antigravity.app"], capabilities: ["design", "implementation", "review"], installUrl: "https://antigravity.google/", notes: "GUI IDE agent; bridge required for remote prompt routing." },
+  { id: "antigravity", label: "Google Antigravity", kind: "agent", runnable: true, commandCandidates: ["antigravity"], appCandidates: ["/Applications/Antigravity.app", "/Applications/Google Antigravity.app"], capabilities: ["interactive"], executionMode: "interactive", installUrl: "https://antigravity.google/", notes: "Interactive CLI chat target. Opens Antigravity UI; not headless artifact generation." },
   { id: "cursor", label: "Cursor", kind: "ide", runnable: false, commandCandidates: ["cursor"], appCandidates: ["/Applications/Cursor.app"], capabilities: ["design", "implementation", "review"], installUrl: "https://cursor.com/", notes: "GUI IDE; use only after a prompt bridge is configured." },
   { id: "windsurf", label: "Windsurf", kind: "ide", runnable: false, commandCandidates: ["windsurf"], appCandidates: ["/Applications/Windsurf.app"], capabilities: ["design", "implementation", "review"], installUrl: "https://windsurf.com/", notes: "GUI IDE; use only after a prompt bridge is configured." },
   { id: "continue", label: "Continue", kind: "bridge", runnable: false, commandCandidates: ["continue"], capabilities: ["review"], installUrl: "https://docs.continue.dev/", notes: "Assistant framework; bridge work needed for governed prompt routing." },
@@ -153,6 +155,13 @@ function promptCapabilityCheck(id: string, command: string): { ok: boolean; reas
     return {
       ok: result.ok && result.output.includes("Run Codex non-interactively"),
       reason: result.ok ? "codex exec is available" : "codex exec is not available"
+    };
+  }
+  if (id === "antigravity") {
+    const result = commandOutput(command, ["chat", "--help"]);
+    return {
+      ok: result.ok && result.output.includes("Usage: antigravity chat"),
+      reason: result.ok ? "antigravity chat is available" : "antigravity chat is not available"
     };
   }
   if (["claude", "gemini", "opencode", "aider"].includes(id)) {
