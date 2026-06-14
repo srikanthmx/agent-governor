@@ -51,6 +51,16 @@ export interface RuntimeRunResult {
   logsPath: string;
   summary?: string;
   error?: string;
+  latencyMs?: number;
+  estimatedCostUsd?: number | null;
+  routeAttempts?: RuntimeRouteAttempt[];
+}
+
+export interface RuntimeRouteAttempt {
+  runtimeId: string;
+  status: RuntimeRunStatus | "skipped";
+  latencyMs: number;
+  error?: string;
 }
 
 export interface RuntimeAdapter {

@@ -101,7 +101,12 @@ export function migrate(db: GovernorDb): void {
       logs_path TEXT NOT NULL,
       started_at TEXT NOT NULL,
       finished_at TEXT,
-      error TEXT
+      error TEXT,
+      task_type TEXT,
+      latency_ms INTEGER,
+      estimated_cost_usd REAL,
+      fallback_path_json TEXT,
+      route_attempts_json TEXT
     );
 
     CREATE TABLE IF NOT EXISTS audit_logs (
@@ -115,6 +120,23 @@ export function migrate(db: GovernorDb): void {
       created_at TEXT NOT NULL
     );
   `);
+  ensureAgentRunTelemetryColumns(db);
+}
+
+function ensureAgentRunTelemetryColumns(db: GovernorDb): void {
+  const columns = new Set((db.prepare("PRAGMA table_info(agent_runs)").all() as Array<{ name: string }>).map((column) => column.name));
+  const additions: Array<[string, string]> = [
+    ["task_type", "TEXT"],
+    ["latency_ms", "INTEGER"],
+    ["estimated_cost_usd", "REAL"],
+    ["fallback_path_json", "TEXT"],
+    ["route_attempts_json", "TEXT"]
+  ];
+  for (const [name, definition] of additions) {
+    if (!columns.has(name)) {
+      db.prepare(`ALTER TABLE agent_runs ADD COLUMN ${name} ${definition}`).run();
+    }
+  }
 }
 
 export interface GitHubRepoRecord {
@@ -292,11 +314,31 @@ export class TaskStore {
     startedAt: string;
     finishedAt?: string;
     error?: string;
+    taskType?: string;
+    latencyMs?: number;
+    estimatedCostUsd?: number | null;
+    fallbackPath?: string[];
+    routeAttempts?: unknown;
   }): void {
     this.db
       .prepare(
-        `INSERT INTO agent_runs (task_id, stage, role, runtime_id, status, logs_path, started_at, finished_at, error)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO agent_runs (
+           task_id,
+           stage,
+           role,
+           runtime_id,
+           status,
+           logs_path,
+           started_at,
+           finished_at,
+           error,
+           task_type,
+           latency_ms,
+           estimated_cost_usd,
+           fallback_path_json,
+           route_attempts_json
+         )
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         input.taskId,
@@ -307,7 +349,12 @@ export class TaskStore {
         input.logsPath,
         input.startedAt,
         input.finishedAt ?? null,
-        input.error ?? null
+        input.error ?? null,
+        input.taskType ?? input.stage,
+        input.latencyMs ?? null,
+        input.estimatedCostUsd ?? null,
+        JSON.stringify(input.fallbackPath ?? []),
+        JSON.stringify(input.routeAttempts ?? [])
       );
   }
 }

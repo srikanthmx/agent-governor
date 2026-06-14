@@ -53,6 +53,15 @@ Required capabilities:
 - Policy engine for task-type routing and fallback rules.
 - Mandatory observability for every execution.
 
+Current API surfaces:
+
+```text
+GET /api/hermes/v1/governor/runtimes
+GET /api/hermes/v1/governor/policy
+GET /api/hermes/v1/governor/usage
+GET /api/hermes/v1/governor/audit
+```
+
 Runtime registry entries should expose:
 
 ```json
@@ -94,6 +103,8 @@ success
 failure
 task_type
 ```
+
+The persisted execution record should also keep the ordered fallback path and per-runtime route attempts so routing quality can be improved later.
 
 ## Phase 2: Runtime Intelligence
 

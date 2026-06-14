@@ -28,6 +28,20 @@ export async function GET() {
              created_at AS updatedAt,
              stage AS summary
       FROM approvals
+      UNION ALL
+      SELECT action AS type,
+             entity_id AS subjectId,
+             json_extract(metadata_json, '$.status') AS status,
+             actor_id AS actor,
+             created_at AS createdAt,
+             created_at AS updatedAt,
+             COALESCE(
+               json_extract(metadata_json, '$.runtimeId'),
+               json_extract(metadata_json, '$.stage'),
+               action
+             ) AS summary
+      FROM audit_logs
+      WHERE action LIKE 'runtime.%'
       ORDER BY updatedAt DESC
       LIMIT 50
     `).all();
@@ -66,6 +80,16 @@ function ensureTables(db: DatabaseSync) {
       requested_by TEXT,
       approved_by TEXT,
       comment TEXT,
+      created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      actor_type TEXT NOT NULL,
+      actor_id TEXT NOT NULL,
+      action TEXT NOT NULL,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      metadata_json TEXT NOT NULL,
       created_at TEXT NOT NULL
     );
   `);

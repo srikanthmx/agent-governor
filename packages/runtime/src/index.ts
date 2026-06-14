@@ -8,6 +8,7 @@ import type {
   RuntimeHealth,
   RuntimeRunInput,
   RuntimeRunResult,
+  RuntimeRouteAttempt,
   RuntimeType
 } from "@agent-governor/core";
 
@@ -52,6 +53,7 @@ export class ShellAdapter implements RuntimeAdapter {
   }
 
   async run(input: RuntimeRunInput): Promise<RuntimeRunResult> {
+    const startedAt = Date.now();
     assertInsideWorktree(input.worktreePath, input.worktreePath);
     const runId = randomUUID();
     const runDir = join(this.config.logsRoot, input.taskId, runId);
@@ -103,7 +105,9 @@ export class ShellAdapter implements RuntimeAdapter {
       artifacts,
       logsPath: runDir,
       summary: `Command ${this.config.command} exited with ${exitCode}`,
-      error: exitCode === 0 ? undefined : `Runtime failed with exit code ${exitCode}`
+      error: exitCode === 0 ? undefined : `Runtime failed with exit code ${exitCode}`,
+      latencyMs: Date.now() - startedAt,
+      estimatedCostUsd: estimateRuntimeCostUsd(this.id)
     };
   }
 }
@@ -129,13 +133,16 @@ export class PlaceholderAdapter implements RuntimeAdapter {
   }
 
   async run(): Promise<RuntimeRunResult> {
+    const startedAt = Date.now();
     return {
       runId: randomUUID(),
       runtimeId: this.id,
       status: "failed",
       artifacts: [],
       logsPath: "",
-      error: `${this.label} adapter is not implemented yet`
+      error: `${this.label} adapter is not implemented yet`,
+      latencyMs: Date.now() - startedAt,
+      estimatedCostUsd: estimateRuntimeCostUsd(this.id)
     };
   }
 }
@@ -161,14 +168,30 @@ export class RuntimeRouter {
     runInput: RuntimeRunInput;
   }): Promise<RuntimeRunResult> {
     const failures: string[] = [];
+    const routeAttempts: RuntimeRouteAttempt[] = [];
     for (const id of [...input.preferred, ...input.fallback]) {
       const adapter = this.adapters.find((candidate) => candidate.id === id);
       if (!adapter || !adapter.capabilities.includes(input.capability)) {
+        routeAttempts.push({ runtimeId: id, status: "skipped", latencyMs: 0, error: "Runtime unavailable or missing capability" });
         continue;
       }
+      const startedAt = Date.now();
       const result = await adapter.run(input.runInput);
+      const latencyMs = result.latencyMs ?? Date.now() - startedAt;
+      routeAttempts.push({
+        runtimeId: id,
+        status: result.status,
+        latencyMs,
+        error: result.error
+      });
       if (result.status === "success") {
-        return { ...result, runtimeId: result.runtimeId ?? adapter.id };
+        return {
+          ...result,
+          runtimeId: result.runtimeId ?? adapter.id,
+          latencyMs,
+          estimatedCostUsd: result.estimatedCostUsd ?? estimateRuntimeCostUsd(adapter.id),
+          routeAttempts
+        };
       }
       failures.push(`${id}: ${result.error ?? result.status}`);
     }
@@ -178,7 +201,17 @@ export class RuntimeRouter {
       status: "failed",
       artifacts: [],
       logsPath: "",
+      latencyMs: routeAttempts.reduce((sum, attempt) => sum + attempt.latencyMs, 0),
+      estimatedCostUsd: null,
+      routeAttempts,
       error: failures.length ? failures.join("\n") : "No enabled runtime matched the requested capability"
     };
   }
+}
+
+function estimateRuntimeCostUsd(runtimeId: string): number | null {
+  if (runtimeId === "shell" || runtimeId === "ollama") {
+    return 0;
+  }
+  return null;
 }

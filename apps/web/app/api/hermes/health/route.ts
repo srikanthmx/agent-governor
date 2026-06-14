@@ -14,6 +14,7 @@ export async function GET() {
       models: "/api/hermes/v1/models",
       chatCompletions: "/api/hermes/v1/chat/completions",
       runtimes: "/api/hermes/v1/governor/runtimes",
+      policy: "/api/hermes/v1/governor/policy",
       usage: "/api/hermes/v1/governor/usage",
       audit: "/api/hermes/v1/governor/audit",
       agentRuns: "/api/hermes/v1/agent-runs",

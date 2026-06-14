@@ -152,6 +152,14 @@ function generatingStatus(stage: StageId): TaskStatus {
   return "PR_READY";
 }
 
+function taskTypeFor(stage: StageId, capability: string): string {
+  if (stage === "requirements") return "repo_analysis";
+  if (stage === "design") return "planning";
+  if (stage === "implementation") return capability === "implementation" ? "implementation" : capability;
+  if (stage === "review") return "review";
+  return stage;
+}
+
 export class WorkflowEngine {
   private readonly tasks: TaskStore;
   private readonly repos: RepoRegistry;
@@ -454,6 +462,8 @@ export class WorkflowEngine {
         outputPath
       }
     });
+    const taskType = taskTypeFor(input.stage, stageConfig.capability ?? input.stage);
+    const fallbackPath = [...roles.preferred, ...roles.fallback];
     let status = result.status;
     let error = result.error;
     if (input.stage === "implementation" && result.status === "success" && !hasSourceChanges(input.worktreePath)) {
@@ -470,7 +480,29 @@ export class WorkflowEngine {
       logsPath: result.logsPath,
       startedAt,
       finishedAt: nowIso(),
-      error
+      error,
+      taskType,
+      latencyMs: result.latencyMs,
+      estimatedCostUsd: result.estimatedCostUsd,
+      fallbackPath,
+      routeAttempts: result.routeAttempts ?? []
+    });
+    audit(this.input.db, {
+      actorType: "system",
+      actorId: "runtime-router",
+      action: "runtime.execution",
+      entityType: "task",
+      entityId: String(input.task.id),
+      metadata: {
+        stage: input.stage,
+        taskType,
+        runtimeId: result.runtimeId,
+        status,
+        latencyMs: result.latencyMs,
+        estimatedCostUsd: result.estimatedCostUsd,
+        fallbackPath,
+        routeAttempts: result.routeAttempts ?? []
+      }
     });
     if (status !== "success") {
       this.tasks.updateStatus(input.task.id, "FAILED", input.stage);

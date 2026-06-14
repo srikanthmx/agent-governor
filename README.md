@@ -60,6 +60,15 @@ The next product phase is runtime routing, not agent-swarm orchestration:
 - Observability for every execution: runtime, latency, cost, success, failure, and task type.
 - Governance hooks for approvals, audit, and permission boundaries.
 
+The Phase 1 API surfaces are:
+
+```text
+GET /api/hermes/v1/governor/runtimes
+GET /api/hermes/v1/governor/policy
+GET /api/hermes/v1/governor/usage
+GET /api/hermes/v1/governor/audit
+```
+
 ## Required Tools
 
 - Node.js
@@ -137,6 +146,7 @@ GET  /api/hermes/health
 GET  /api/hermes/v1/models
 POST /api/hermes/v1/chat/completions
 GET  /api/hermes/v1/governor/runtimes
+GET  /api/hermes/v1/governor/policy
 GET  /api/hermes/v1/governor/usage
 GET  /api/hermes/v1/governor/audit
 POST /api/hermes/v1/agent-runs
