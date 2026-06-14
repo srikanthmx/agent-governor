@@ -80,7 +80,7 @@ export function LocalDashboard() {
               <h2 className="text-[15px] font-semibold text-[var(--ag-text-1)]">Welcome to Agent Governor</h2>
               <p className="text-[13px] text-[var(--ag-text-3)] mt-1">Connect GitHub and add a repository to start routing work across your AI runtimes.</p>
             </div>
-            <Link href="/setup" className="ag-btn ag-btn-primary ag-btn-xl">Get Started</Link>
+            <Link href="/first-run" className="ag-btn ag-btn-primary ag-btn-xl">Start first run</Link>
           </div>
         </div>
       )}

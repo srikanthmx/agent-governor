@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
-import { webAppMode } from "../deployment";
 import { getDashboardData } from "../data";
-import { SetupFlow } from "./setup-flow";
+import { webAppMode } from "../deployment";
+import { SetupFlow } from "../setup/setup-flow";
 
 export const dynamic = "force-dynamic";
 
-export default function SetupPage() {
+export default function FirstRunPage() {
   if (webAppMode() === "control-plane") {
     redirect("/");
   }

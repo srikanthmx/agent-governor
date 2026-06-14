@@ -21,8 +21,8 @@ const nav = [
     icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1.5l5 3v6l-5 3-5-3v-6l5-3z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/><path d="M5.25 7.5h4.5M7.5 5.25v4.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>,
   },
   {
-    href: "/setup",
-    label: "Setup",
+    href: "/first-run",
+    label: "First Run",
     icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="2" stroke="currentColor" strokeWidth="1.2"/><path d="M7.5 1.5v2M7.5 11.5v2M1.5 7.5h2M11.5 7.5h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>,
   },
 ];

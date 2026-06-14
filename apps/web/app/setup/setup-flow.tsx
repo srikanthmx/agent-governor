@@ -34,31 +34,52 @@ export function SetupFlow({
   runtimes: Runtime[];
   localTools: LocalTool[];
 }) {
-  const [activeStep, setActiveStep] = useState(0);
+  const runnableRuntimes = runtimes.filter((runtime) => runtime.enabled);
+  const initialStep = githubRepos.length === 0 ? 0 : repos.length === 0 ? 1 : 2;
+  const [activeStep, setActiveStep] = useState(initialStep);
 
   const steps = [
-    { title: "GitHub", description: "Sign in with GitHub" },
-    { title: "Repositories", description: "Clone or link repos to govern" },
-    { title: "Agents", description: "Detect local AI coding tools" },
+    { title: "GitHub", description: "Sign in with GitHub", done: githubRepos.length > 0 },
+    { title: "Repository", description: "Clone or link code", done: repos.length > 0 },
+    { title: "Runtimes", description: "Check local workers", done: runnableRuntimes.length > 0 },
   ];
+  const completeCount = steps.filter((step) => step.done).length;
 
   return (
     <div className="space-y-6">
-      {/* Step tabs */}
-      <div className="flex gap-2">
+      <div className="ag-card ag-card-glow-blue p-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="ag-section-label mb-2">First run</div>
+            <h1 className="text-[22px] font-semibold leading-tight text-[var(--ag-heading)]">Set up your AI runtime control plane</h1>
+            <p className="mt-2 max-w-[760px] text-sm leading-6 text-[var(--ag-muted)]">
+              Connect GitHub, pick a repository, and confirm at least one runtime. After that, Governor can route work, keep approvals visible, and prepare PRs.
+            </p>
+          </div>
+          <div className="min-w-[180px] rounded-lg border border-[var(--ag-line)] bg-[var(--ag-surface)] p-4">
+            <div className="text-xs text-[var(--ag-muted)]">Setup progress</div>
+            <div className="mt-1 text-2xl font-semibold text-[var(--ag-heading)]">{completeCount}/3</div>
+            <div className="mt-3 h-2 rounded-full bg-[var(--ag-bg)]">
+              <div className="h-2 rounded-full bg-[var(--ag-primary)] transition-all" style={{ width: `${(completeCount / steps.length) * 100}%` }} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-2 md:grid-cols-3">
         {steps.map((step, i) => (
           <button
             key={i}
             onClick={() => setActiveStep(i)}
-            className={`flex-1 ag-card p-3 text-left cursor-pointer transition-colors ${
+            className={`ag-card p-3 text-left cursor-pointer transition-colors ${
               activeStep === i ? "border-[var(--ag-primary)] bg-[color-mix(in_srgb,var(--ag-primary)_8%,var(--ag-panel))]" : ""
             }`}
           >
             <div className="flex items-center gap-2.5">
               <div className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-semibold ${
-                activeStep === i ? "bg-[var(--ag-primary)] text-[var(--ag-bg)]" : "bg-[var(--ag-panel-2)] text-[var(--ag-muted)]"
+                step.done ? "bg-[var(--ag-green)] text-[var(--ag-bg)]" : activeStep === i ? "bg-[var(--ag-primary)] text-[var(--ag-bg)]" : "bg-[var(--ag-panel-2)] text-[var(--ag-muted)]"
               }`}>
-                {i + 1}
+                {step.done ? "OK" : i + 1}
               </div>
               <div>
                 <div className={`text-sm font-medium ${activeStep === i ? "text-[var(--ag-heading)]" : "text-[var(--ag-muted)]"}`}>{step.title}</div>
@@ -69,10 +90,21 @@ export function SetupFlow({
         ))}
       </div>
 
-      {/* Step content */}
       {activeStep === 0 && <GitHubStep />}
       {activeStep === 1 && <RepoStep repos={repos} githubRepos={githubRepos} />}
       {activeStep === 2 && <AgentStep runtimes={runtimes} localTools={localTools} />}
+
+      {completeCount === steps.length && (
+        <div className="ag-card border-[var(--ag-green)] p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="text-sm font-semibold text-[var(--ag-heading)]">Governor is ready</div>
+              <p className="mt-1 text-sm text-[var(--ag-muted)]">You can create a task, route it to a runtime, and review approvals from the dashboard.</p>
+            </div>
+            <a className="ag-btn ag-btn-primary" href="/">Go to dashboard</a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -157,7 +189,7 @@ function GitHubStep() {
         <div className="flex items-center justify-between gap-3 rounded-lg bg-[var(--ag-surface)] border border-[var(--ag-line)] p-4">
           <div>
             <div className="text-sm font-medium text-[var(--ag-heading)]">Sync repositories</div>
-            <p className="text-xs text-[var(--ag-muted)]">Pull your GitHub repos into Agent Governor so you can clone and govern them.</p>
+            <p className="text-xs text-[var(--ag-muted)]">Pull your GitHub repos into Governor so the next step can clone one.</p>
           </div>
           <button className="ag-btn ag-btn-primary" disabled={busy} onClick={syncRepos}>
             {busy ? "Syncing..." : "Sync"}

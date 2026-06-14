@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   const expectedState = cookies().get("ag_github_oauth_state")?.value;
-  const redirectUrl = new URL("/setup", url.origin);
+  const redirectUrl = new URL("/first-run", url.origin);
 
   if (!code || !validGithubState(state, expectedState)) {
     redirectUrl.searchParams.set("github", "error");
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
       avatarUrl: user.avatar_url,
       createdAt: new Date().toISOString()
     });
-    const response = NextResponse.redirect(new URL("/setup?github=connected", url.origin));
+    const response = NextResponse.redirect(new URL("/first-run?github=connected", url.origin));
     response.cookies.delete("ag_github_oauth_state");
     return response;
   } catch (error) {
