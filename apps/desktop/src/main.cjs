@@ -1,15 +1,18 @@
-const { app, BrowserWindow, Menu, shell } = require("electron");
+const { app, BrowserWindow, Menu, dialog, shell } = require("electron");
 const { spawn } = require("node:child_process");
 const { existsSync } = require("node:fs");
+const net = require("node:net");
 const { join, resolve } = require("node:path");
 
 const DEFAULT_PORT = Number(process.env.AGENT_GOVERNOR_DESKTOP_PORT || "3002");
+const HOST = process.env.AGENT_GOVERNOR_DESKTOP_HOST || "127.0.0.1";
 const EXTERNAL_URL_PATTERN = /^https?:\/\/(?!localhost(?::\d+)?(?:\/|$)|127\.0\.0\.1(?::\d+)?(?:\/|$))/i;
 
 /** @type {import("node:child_process").ChildProcess | null} */
 let webProcess = null;
 /** @type {import("electron").BrowserWindow | null} */
 let mainWindow = null;
+let startupLog = "";
 
 function findProjectRoot() {
   let current = resolve(__dirname, "..", "..", "..");
@@ -27,7 +30,14 @@ function findProjectRoot() {
 }
 
 function localUrl(port = DEFAULT_PORT) {
-  return process.env.AGENT_GOVERNOR_WEB_URL || `http://localhost:${port}`;
+  return process.env.AGENT_GOVERNOR_WEB_URL || `http://${HOST}:${port}`;
+}
+
+/**
+ * @param {Buffer | string} chunk
+ */
+function appendStartupLog(chunk) {
+  startupLog = `${startupLog}${chunk.toString("utf8")}`.slice(-12000);
 }
 
 /**
@@ -57,22 +67,63 @@ async function waitForWeb(url, timeoutMs = 45000) {
   throw new Error(`Timed out waiting for Agent Governor web app at ${url}`);
 }
 
+/**
+ * @param {number} port
+ * @returns {Promise<boolean>}
+ */
+function canListen(port) {
+  return new Promise((resolvePromise) => {
+    const server = net.createServer();
+    server.once("error", () => resolvePromise(false));
+    server.once("listening", () => {
+      server.close(() => resolvePromise(true));
+    });
+    server.listen(port, HOST);
+  });
+}
+
+/**
+ * @param {number} preferredPort
+ */
+async function findAvailablePort(preferredPort) {
+  for (let offset = 0; offset < 20; offset += 1) {
+    const port = preferredPort + offset;
+    if (await canListen(port)) {
+      return port;
+    }
+  }
+  throw new Error(`No available local port found starting at ${preferredPort}`);
+}
+
 async function ensureWebServer() {
-  const url = localUrl();
-  if (await isWebReady(url)) {
+  if (process.env.AGENT_GOVERNOR_WEB_URL) {
+    const url = localUrl();
+    await waitForWeb(url, 10000);
     return url;
   }
 
+  const readyUrl = localUrl(DEFAULT_PORT);
+  if (await isWebReady(readyUrl)) {
+    return readyUrl;
+  }
+
+  const port = await findAvailablePort(DEFAULT_PORT);
+  const url = localUrl(port);
+
   const root = findProjectRoot();
-  webProcess = spawn("pnpm", ["--filter", "@agent-governor/web", "dev", "--", "-p", String(DEFAULT_PORT)], {
+  startupLog = "";
+  webProcess = spawn("pnpm", ["--filter", "@agent-governor/web", "exec", "next", "dev", "-p", String(port), "--hostname", HOST], {
     cwd: root,
     env: {
       ...process.env,
       AGENT_GOVERNOR_DESKTOP: "1",
       BROWSER: "none"
     },
-    stdio: "inherit"
+    stdio: ["ignore", "pipe", "pipe"]
   });
+
+  webProcess.stdout?.on("data", appendStartupLog);
+  webProcess.stderr?.on("data", appendStartupLog);
 
   webProcess.once("exit", (code, signal) => {
     webProcess = null;
@@ -151,14 +202,23 @@ function installMenu() {
 
 app.whenReady().then(async () => {
   installMenu();
-  const url = await ensureWebServer();
-  createWindow(url);
+  try {
+    const url = await ensureWebServer();
+    createWindow(url);
 
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow(url);
-    }
-  });
+    app.on("activate", () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow(url);
+      }
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    dialog.showErrorBox(
+      "Agent Governor failed to start",
+      `${message}\n\nRecent web server output:\n${startupLog || "No server output captured."}`
+    );
+    app.quit();
+  }
 });
 
 app.on("window-all-closed", () => {
