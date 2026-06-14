@@ -98,7 +98,11 @@ Bridge endpoints:
 
 ```text
 GET  /api/hermes/health
+GET  /api/hermes/v1/models
 POST /api/hermes/v1/chat/completions
+GET  /api/hermes/v1/governor/runtimes
+GET  /api/hermes/v1/governor/usage
+GET  /api/hermes/v1/governor/audit
 POST /api/hermes/v1/agent-runs
 GET  /api/hermes/v1/agent-runs/:runId/events
 GET  /api/hermes/v1/agent-runs/:runId/events?stream=true
@@ -108,10 +112,28 @@ The model-compatible endpoint accepts OpenAI-style chat completion requests:
 
 ```json
 {
-  "model": "agent-governor-local",
+  "model": "governor-auto",
   "messages": [
     { "role": "user", "content": "Implement TASK-8 in abandoned-circle" }
   ],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "run_cli_agent",
+        "description": "Delegate bounded coding work to a Governor worker runtime.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "runtime": { "type": "string" },
+            "task": { "type": "string" }
+          },
+          "required": ["runtime", "task"]
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto",
   "metadata": {
     "repo": "abandoned-circle",
     "preferred_agent": "gemini"
@@ -119,7 +141,24 @@ The model-compatible endpoint accepts OpenAI-style chat completion requests:
 }
 ```
 
-The chat completion response is a normal OpenAI-style `chat.completion`. It intentionally does not include a `governor` task object, progress URL, PR URL, or lifecycle events. Hermes can use this endpoint as a model replacement. Governor's PR/task behavior remains available only through explicit Governor routes.
+The chat completion response is a normal OpenAI-style `chat.completion`. When Hermes provides `tools[]`, Governor asks the configured backend for a compact JSON tool-call envelope and normalizes valid calls into OpenAI `tool_calls[]` so Hermes can execute the tools itself. If the backend returns prose or an invalid tool name, Governor returns normal assistant text instead of inventing a tool call.
+
+Use these model aliases from Hermes:
+
+```text
+provider: custom
+base_url: http://localhost:3004/api/hermes/v1
+model: governor-auto
+```
+
+`governor-auto`, `governor-brain`, and the backward-compatible `agent-governor-local` alias are listed by `GET /api/hermes/v1/models`.
+
+Governor keeps two modes separate:
+
+- Brain mode: `/api/hermes/v1/chat/completions` behaves like an OpenAI-compatible model endpoint for Hermes tool-loop control.
+- Worker mode: CLI agents such as Codex, Gemini, Aider, and shell are exposed through Governor task/runtime routes. They are discoverable at `/api/hermes/v1/governor/runtimes`, but they are not advertised as Hermes brain models.
+
+The chat completion endpoint intentionally does not include a `governor` task object, progress URL, PR URL, or lifecycle events. Hermes can use this endpoint as a model replacement. Governor's PR/task behavior remains available only through explicit Governor routes.
 
 ## Hermes Sidecar
 

@@ -11,7 +11,11 @@ export async function GET() {
     mode: "openai-compatible-local-model-adapter",
     cloudExecution: false,
     routes: {
+      models: "/api/hermes/v1/models",
       chatCompletions: "/api/hermes/v1/chat/completions",
+      runtimes: "/api/hermes/v1/governor/runtimes",
+      usage: "/api/hermes/v1/governor/usage",
+      audit: "/api/hermes/v1/governor/audit",
       agentRuns: "/api/hermes/v1/agent-runs",
       events: "/api/hermes/v1/agent-runs/:runId/events"
     },
@@ -21,7 +25,9 @@ export async function GET() {
       proxy: "/api/hermes/proxy/:path*"
     },
     policy: {
-      chatCompletions: "respond as a model; no Governor Git task or PR side effects",
+      brainMode: "respond as an OpenAI-compatible model; normalize valid tool-call JSON into tool_calls[]",
+      workerMode: "delegate coding work through explicit Governor task/runtime routes",
+      chatCompletions: "no Governor Git task or PR side effects",
       routableAgents: "p2p_shared only",
       privateAgents: "owner only",
       executionOwner: "desktop peer"
