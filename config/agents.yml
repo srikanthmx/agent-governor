@@ -103,6 +103,29 @@ agents:
       - implementer
       - reviewer
 
+  - id: ollama
+    label: Local Ollama
+    type: shell
+    enabled: false
+    detectCommand: ollama
+    command: sh
+    models:
+      - llama3.1
+      - qwen2.5-coder
+      - mistral
+    defaultModel: llama3.1
+    args:
+      - -lc
+      - 'ollama run "${AGENT_GOVERNOR_MODEL:-llama3.1}" "$(cat "$AGENT_GOVERNOR_PROMPT_FILE")"'
+    capabilities:
+      - requirements
+      - design
+      - review
+    preferredRoles:
+      - requirements_writer
+      - planner
+      - reviewer
+
   - id: goose
     label: Goose
     type: shell
@@ -258,13 +281,13 @@ agents:
 roles:
   requirements_writer:
     preferred: [codex, claude, gemini, opencode, goose, qwen-code, shell]
-    fallback: [aider]
+    fallback: [ollama, aider]
   planner:
     preferred: [codex, claude, gemini, opencode, goose, qwen-code]
-    fallback: [cline, shell]
+    fallback: [ollama, cline, shell]
   implementer:
     preferred: [codex, claude, gemini, opencode, goose, qwen-code, aider]
     fallback: [shell]
   reviewer:
     preferred: [codex, claude, gemini, opencode, goose, qwen-code, cline]
-    fallback: [shell]
+    fallback: [ollama, shell]

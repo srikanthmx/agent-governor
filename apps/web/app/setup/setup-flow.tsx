@@ -319,9 +319,9 @@ function AgentStep({ runtimes, localTools }: { runtimes: Runtime[]; localTools: 
       <div className="ag-card p-5">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-base font-semibold text-[var(--ag-heading)]">Runtime Agents</h2>
+            <h2 className="text-base font-semibold text-[var(--ag-heading)]">Runtime Registry</h2>
             <p className="mt-1 text-xs text-[var(--ag-muted)]">
-              These are the only agents Agent Governor can route prompts to today. {runnableRuntimes.length}/{runtimes.length} runnable.
+              These are the only runtimes Governor can route prompts to today. {runnableRuntimes.length}/{runtimes.length} runnable.
             </p>
           </div>
           <button className="ag-btn ag-btn-sm ag-btn-secondary" onClick={() => window.location.reload()}>Rescan</button>

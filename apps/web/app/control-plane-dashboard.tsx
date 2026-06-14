@@ -33,18 +33,18 @@ const peers = [
 const streamEvents = [
   { time: "18:16:42", channel: "telegram", text: "PR link posted with progress room", tone: "success" },
   { time: "18:16:18", channel: "peer", text: "Gemini CLI completed on Srikanth MacBook", tone: "success" },
-  { time: "18:14:09", channel: "agent", text: "stderr captured and attached to TASK-6", tone: "warning" },
+  { time: "18:14:09", channel: "runtime", text: "stderr captured and attached to TASK-6", tone: "warning" },
   { time: "18:12:31", channel: "approval", text: "PR approved from web room", tone: "success" },
   { time: "18:10:04", channel: "router", text: "Matched TASK-6 to P2P shared Gemini CLI", tone: "active" },
   { time: "18:09:58", channel: "peer", text: "Srikanth MacBook claimed run session", tone: "active" }
 ];
 
-const sharedAgents = [
-  { peer: "Srikanth MacBook", agent: "Codex", scope: "P2P shared", mode: "CLI", status: "usable" },
-  { peer: "Srikanth MacBook", agent: "Gemini CLI", scope: "P2P shared", mode: "CLI", status: "running" },
-  { peer: "Srikanth MacBook", agent: "Antigravity", scope: "Private", mode: "App", status: "owner only" },
-  { peer: "Desktop node", agent: "Qwen Code", scope: "P2P shared", mode: "CLI", status: "standby" },
-  { peer: "Desktop node", agent: "Goose", scope: "Private", mode: "CLI", status: "owner only" }
+const sharedRuntimes = [
+  { peer: "Srikanth MacBook", runtime: "Codex", scope: "P2P shared", mode: "CLI", status: "usable" },
+  { peer: "Srikanth MacBook", runtime: "Gemini CLI", scope: "P2P shared", mode: "CLI", status: "running" },
+  { peer: "Srikanth MacBook", runtime: "Antigravity", scope: "Private", mode: "App", status: "owner only" },
+  { peer: "Desktop node", runtime: "Qwen Code", scope: "P2P shared", mode: "CLI", status: "standby" },
+  { peer: "Desktop node", runtime: "Goose", scope: "Private", mode: "CLI", status: "owner only" }
 ];
 
 const tasks = [
@@ -94,11 +94,11 @@ export function ControlPlaneDashboard() {
         <div>
           <div className="mb-2 flex items-center gap-2">
             <span className="ag-badge ag-badge-success">Live control plane</span>
-            <span className="ag-badge ag-badge-neutral">No cloud agents</span>
+            <span className="ag-badge ag-badge-neutral">Runtime router</span>
           </div>
-          <h1 className="text-[20px] font-semibold leading-tight text-[var(--ag-text-1)]">Governor Web</h1>
+          <h1 className="text-[20px] font-semibold leading-tight text-[var(--ag-text-1)]">AI Runtime Control Plane</h1>
           <p className="mt-1 max-w-[720px] text-[13px] text-[var(--ag-text-3)]">
-            Stream approvals, peer sessions, agent logs, PR links, and deploy previews while opted-in desktops run the actual coding agents.
+            Govern, route, audit, and optimize AI work while opted-in desktops run the actual coding runtimes.
           </p>
         </div>
         <a className="ag-btn ag-btn-primary" href="/tasks/6">Open Live Room</a>
@@ -145,7 +145,7 @@ export function ControlPlaneDashboard() {
             <div className="text-[11px] text-[var(--ag-text-4)]">Desktop generated code</div>
             <div className="mt-1 font-mono text-[26px] font-semibold tracking-[0.18em] text-[var(--ag-text-1)]">K7P-42M</div>
             <div className="mt-3 text-[11px] leading-relaxed text-[var(--ag-text-3)]">
-              Pair a desktop, then choose which detected agents are P2P shared. Everything else remains private to that user.
+              Pair a desktop, then choose which detected runtimes are shared. Everything else remains private to that user.
             </div>
           </div>
         </div>
@@ -187,7 +187,7 @@ export function ControlPlaneDashboard() {
           <div className="mt-2 text-[24px] font-semibold text-[var(--ag-text-1)]">3</div>
         </div>
         <div className="ag-card p-4">
-          <div className="text-[11px] uppercase tracking-[0.08em] text-[var(--ag-text-4)]">P2P shared agents</div>
+          <div className="text-[11px] uppercase tracking-[0.08em] text-[var(--ag-text-4)]">Shared runtimes</div>
           <div className="mt-2 text-[24px] font-semibold text-[var(--ag-text-1)]">3</div>
         </div>
         <div className="ag-card p-4">
@@ -222,7 +222,7 @@ export function ControlPlaneDashboard() {
                       <span className="text-right text-[var(--ag-text-2)]">{peer.session}</span>
                     </div>
                     <div className="flex justify-between gap-3">
-                      <span className="text-[var(--ag-text-4)]">Shared</span>
+                      <span className="text-[var(--ag-text-4)]">Runtimes</span>
                       <span className="text-right text-[var(--ag-green)]">{peer.shared.join(", ")}</span>
                     </div>
                     <div className="flex justify-between gap-3">
@@ -255,7 +255,7 @@ export function ControlPlaneDashboard() {
                   </div>
                   <div className="mt-3 grid gap-2 text-[11px] text-[var(--ag-text-3)] md:grid-cols-4">
                     <div>Peer: <span className="text-[var(--ag-text-2)]">{task.peer}</span></div>
-                    <div>Agent: <span className="text-[var(--ag-text-2)]">{task.agent}</span></div>
+                    <div>Runtime: <span className="text-[var(--ag-text-2)]">{task.agent}</span></div>
                     <div>PR: <span className="text-[var(--ag-text-2)]">{task.pr}</span></div>
                     <div>Preview: <span className="text-[var(--ag-text-2)]">{task.preview}</span></div>
                   </div>
@@ -269,16 +269,16 @@ export function ControlPlaneDashboard() {
 
           <div className="ag-card">
             <div className="border-b border-[var(--ag-border)] px-4 py-3">
-              <div className="text-[13px] font-medium text-[var(--ag-text-1)]">Agent Sharing</div>
+              <div className="text-[13px] font-medium text-[var(--ag-text-1)]">Runtime Sharing</div>
             </div>
             <div className="divide-y divide-[var(--ag-border)]">
-              {sharedAgents.map((agent) => (
-                <div key={`${agent.peer}-${agent.agent}`} className="grid gap-3 px-4 py-3 text-[12px] md:grid-cols-[160px_1fr_110px_90px_90px]">
-                  <div className="text-[var(--ag-text-3)]">{agent.peer}</div>
-                  <div className="font-medium text-[var(--ag-text-1)]">{agent.agent}</div>
-                  <div className={agent.scope === "P2P shared" ? "text-[var(--ag-green)]" : "text-[var(--ag-text-4)]"}>{agent.scope}</div>
-                  <div className="text-[var(--ag-text-3)]">{agent.mode}</div>
-                  <div className="text-right text-[var(--ag-text-4)]">{agent.status}</div>
+              {sharedRuntimes.map((runtime) => (
+                <div key={`${runtime.peer}-${runtime.runtime}`} className="grid gap-3 px-4 py-3 text-[12px] md:grid-cols-[160px_1fr_110px_90px_90px]">
+                  <div className="text-[var(--ag-text-3)]">{runtime.peer}</div>
+                  <div className="font-medium text-[var(--ag-text-1)]">{runtime.runtime}</div>
+                  <div className={runtime.scope === "P2P shared" ? "text-[var(--ag-green)]" : "text-[var(--ag-text-4)]"}>{runtime.scope}</div>
+                  <div className="text-[var(--ag-text-3)]">{runtime.mode}</div>
+                  <div className="text-right text-[var(--ag-text-4)]">{runtime.status}</div>
                 </div>
               ))}
             </div>

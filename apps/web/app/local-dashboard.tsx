@@ -78,7 +78,7 @@ export function LocalDashboard() {
           <div className="flex items-center justify-between gap-6">
             <div>
               <h2 className="text-[15px] font-semibold text-[var(--ag-text-1)]">Welcome to Agent Governor</h2>
-              <p className="text-[13px] text-[var(--ag-text-3)] mt-1">Connect GitHub and add a repository to start governing your AI agents.</p>
+              <p className="text-[13px] text-[var(--ag-text-3)] mt-1">Connect GitHub and add a repository to start routing work across your AI runtimes.</p>
             </div>
             <Link href="/setup" className="ag-btn ag-btn-primary ag-btn-xl">Get Started</Link>
           </div>
@@ -107,7 +107,7 @@ export function LocalDashboard() {
         )}
         <div className="flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full bg-[var(--ag-green)]" />
-          <span className="text-[12px] text-[var(--ag-text-3)]">{enabledAgents.length} agent{enabledAgents.length !== 1 ? "s" : ""} online</span>
+          <span className="text-[12px] text-[var(--ag-text-3)]">{enabledAgents.length} runtime{enabledAgents.length !== 1 ? "s" : ""} online</span>
         </div>
         <div className="flex-1" />
         <span className="text-[12px] text-[var(--ag-text-4)]">{tasks.length} total tasks</span>
@@ -134,7 +134,7 @@ export function LocalDashboard() {
             </svg>
           </div>
           <div className="ag-empty-title">No tasks yet</div>
-          <div className="ag-empty-description">Describe what you want built above. An AI agent will handle requirements, design, implementation, and PR.</div>
+          <div className="ag-empty-description">Describe what you want built above. Governor will route the work to the best available runtime and keep approvals visible.</div>
         </div>
       ) : (
         <div className="space-y-2 ag-stagger">

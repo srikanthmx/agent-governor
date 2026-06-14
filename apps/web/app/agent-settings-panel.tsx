@@ -207,7 +207,7 @@ export function AgentSettingsPanel({ runtimes, localTools }: { runtimes: Runtime
           <div>
             <h3 className="text-[15px] font-semibold text-[var(--ag-text-1)]">Integrations</h3>
             <p className="mt-0.5 text-[12px] text-[var(--ag-text-4)]">
-              Telegram routes into Hermes when the API sidecar is running. Hermes uses Governor only as its local model endpoint.
+              Telegram routes into Hermes when the API sidecar is running. Hermes uses Governor as an OpenAI-compatible runtime gateway.
             </p>
           </div>
           <button className="ag-btn ag-btn-ghost ag-btn-sm" onClick={() => refreshIntegrations()} disabled={Boolean(integrationBusy)}>
@@ -277,7 +277,7 @@ export function AgentSettingsPanel({ runtimes, localTools }: { runtimes: Runtime
           <div>
             <h3 className="text-[15px] font-semibold text-[var(--ag-text-1)]">Usable Agents</h3>
             <p className="text-[12px] text-[var(--ag-text-4)] mt-0.5">
-              These agents can receive prompts now. {runnableRuntimes.length} usable, {dryRunnableRuntimes.length} command-line dry runnable.
+              These runtimes can receive prompts now. {runnableRuntimes.length} usable, {dryRunnableRuntimes.length} command-line dry runnable.
             </p>
           </div>
           <button className="ag-btn ag-btn-ghost ag-btn-sm" disabled={reloadBusy} onClick={reloadAgents}>
@@ -333,7 +333,7 @@ export function AgentSettingsPanel({ runtimes, localTools }: { runtimes: Runtime
           <div>
             <h3 className="text-[15px] font-semibold text-[var(--ag-text-1)]">Agent Market</h3>
             <p className="text-[12px] text-[var(--ag-text-4)] mt-0.5">
-              Missing means Agent Governor cannot route prompts to it yet. Install it or configure a bridge, then rescan. Market research stamp{researchDate ? `: ${researchDate}.` : " updates on each scan."}
+              Missing means Governor cannot route prompts to it yet. Install it or configure a bridge, then rescan. Market research stamp{researchDate ? `: ${researchDate}.` : " updates on each scan."}
             </p>
           </div>
           <button className="ag-btn ag-btn-ghost ag-btn-sm" disabled={reloadBusy} onClick={reloadAgents}>

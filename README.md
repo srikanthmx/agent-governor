@@ -1,14 +1,36 @@
 # Agent Governor
 
-Agent Governor is a local-first governance/control plane for routing repository work to pluggable AI coding runtimes while keeping important actions behind owner approval.
+Agent Governor is the control plane for AI workers: a local-first AI runtime operating system that governs, routes, audits, and optimizes the runtimes a user already owns.
 
-It is not an AI coding agent, an IDE, a hosted SaaS, or a tool coupled to one runtime. It wires Telegram, a Web UI, a CLI, GitHub PRs, git worktrees, local config, SQLite, and runtime adapters together.
+It is not another agent, model, IDE, hosted coding assistant, or multi-agent framework. It wires Telegram, a Web UI, a CLI, GitHub PRs, git worktrees, local config, SQLite, policies, telemetry, and runtime adapters together so Governor can decide who should run work, where it should run, what permissions are required, what it costs, and what fallback should be used.
+
+The product direction is documented in [docs/product-direction.md](docs/product-direction.md).
+
+## North Star
+
+The user says:
+
+```text
+Build feature X
+```
+
+Governor decides:
+
+```text
+Who should do it?
+Where should it run?
+What permissions are required?
+How much will it cost?
+What is the fallback?
+```
+
+Every core feature should help govern, route, audit, or optimize AI work.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  Telegram["Telegram Bot"] --> API["Governance Core"]
+  Telegram["Telegram Bot"] --> API["Runtime Control Plane"]
   CLI["CLI"] --> API
   Web["Web UI"] --> API
   Desktop["Desktop App"] --> Web
@@ -17,12 +39,26 @@ flowchart LR
   API --> Approval["Approval Engine"]
   API --> Workflow["Workflow Engine"]
   Workflow --> Router["Runtime Router"]
-  Router --> Shell["ShellAdapter"]
-  Router --> OpenCode["OpenCodeAdapter"]
-  Router --> Future["Future Adapters"]
+  Router --> Policy["Policy Engine"]
+  Router --> Metrics["Runtime Telemetry"]
+  Router --> Codex["Codex CLI"]
+  Router --> Gemini["Gemini CLI"]
+  Router --> Claude["Claude Code"]
+  Router --> Ollama["Ollama"]
+  Router --> Future["Future Runtimes"]
   Workflow --> Worktree["Git Worktree Manager"]
   Workflow --> GitHub["GitHub CLI Manager"]
 ```
+
+## Phase 1 Focus
+
+The next product phase is runtime routing, not agent-swarm orchestration:
+
+- Runtime registry for Claude Code, Gemini CLI, Codex CLI, Copilot, and Ollama.
+- OpenAI-compatible runtime gateway at `/v1/chat/completions` shape, with Hermes compatibility.
+- Policy routing by task type, capability, health, quota, cost, and fallback.
+- Observability for every execution: runtime, latency, cost, success, failure, and task type.
+- Governance hooks for approvals, audit, and permission boundaries.
 
 ## Required Tools
 
@@ -58,7 +94,7 @@ This is the honest product boundary:
 
 ## Web Control Plane
 
-The web app can also run as a hosted Governor control plane. In this mode, the Netlify app is the shared interface for Telegram progress links, approvals, agent logs, PR links, and deploy preview links. Desktop/laptop apps remain the worker nodes that connect outbound and execute local CLIs or app-backed agents.
+The web app can also run as a hosted Governor control plane. In this mode, the Netlify app is the shared interface for Telegram progress links, approvals, runtime logs, PR links, and deploy preview links. Desktop/laptop apps remain the worker nodes that connect outbound and execute local CLIs or app-backed runtimes.
 
 Agent Governor is intentionally not a cloud AI-agent runner. The hosted app coordinates peers and records activity; all coding agents execute on desktops/laptops that opted in.
 

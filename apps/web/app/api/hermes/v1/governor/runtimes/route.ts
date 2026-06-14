@@ -28,6 +28,14 @@ export async function GET() {
         command: agent.command ?? null,
         executionMode: agent.executionMode ?? "headless",
         capabilities: agent.capabilities,
+        health: runtimeHealth({
+          enabled: agent.enabled,
+          detected: agent.detected ?? market?.detected ?? false,
+          promptRunnable: market?.promptRunnable ?? agent.enabled,
+          status: market?.status
+        }),
+        quota: runtimeQuota(agent.id),
+        cost: runtimeCost(agent.id),
         preferredRoles: agent.preferredRoles ?? [],
         models: agent.models ?? [],
         defaultModel: agent.defaultModel ?? null,
@@ -35,4 +43,21 @@ export async function GET() {
       };
     })
   });
+}
+
+function runtimeHealth(input: { enabled: boolean; detected: boolean; promptRunnable: boolean; status?: string }) {
+  if (input.enabled && input.promptRunnable) return "ready";
+  if (input.detected) return input.status === "bridge_required" ? "bridge_required" : "detected";
+  return "missing";
+}
+
+function runtimeQuota(runtimeId: string) {
+  if (runtimeId === "ollama" || runtimeId === "shell") return "local";
+  return "unknown";
+}
+
+function runtimeCost(runtimeId: string) {
+  if (runtimeId === "ollama" || runtimeId === "shell") return "local";
+  if (["codex", "claude", "gemini", "copilot"].includes(runtimeId)) return "subscription";
+  return "unknown";
 }

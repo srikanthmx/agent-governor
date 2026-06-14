@@ -28,7 +28,7 @@ export default function ReposPage() {
             </svg>
           </div>
           <div className="ag-empty-title">No repositories yet</div>
-          <div className="ag-empty-description">Add a repository to start sending AI agents to work on your code.</div>
+          <div className="ag-empty-description">Add a repository to start routing AI runtime work against your code.</div>
           <Link href="/setup" className="ag-btn ag-btn-primary mt-5">Go to Setup</Link>
         </div>
       ) : (

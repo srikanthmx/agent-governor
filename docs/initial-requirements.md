@@ -1,28 +1,28 @@
 # Agent Governor Initial Requirements
 
-Agent Governor is a local-first, cloneable, configurable AI agent governance platform.
+Agent Governor is a local-first, cloneable AI runtime control plane. It governs, routes, audits, and optimizes the AI runtimes a user already owns.
 
 ## Goal
 
-Build a git-cloneable local platform that lets users manage multiple GitHub repositories through Telegram and a Web UI, route work to pluggable AI coding runtimes such as OpenCode, Cline, Aider, Hermes/OpenACP-style bridges, and future API-based agents, while keeping all important actions gated by owner approval.
+Build a git-cloneable local runtime operating system that lets users manage multiple GitHub repositories through Telegram and a Web UI, route work to pluggable AI runtimes such as Claude Code, Gemini CLI, Codex CLI, Copilot, Ollama, OpenCode, Aider, Hermes/OpenACP-style bridges, local GPUs, and future API-based workers, while keeping important actions gated by policy and owner approval.
 
-The product must be local-first, clone-and-run, configurable through Web UI and CLI, agent-runtime agnostic, GitHub PR-first, Telegram-first, future-proof for rapidly changing AI coding tools, minimal in custom AI logic, and maximal in wiring/plugin architecture.
+The product must be local-first, clone-and-run, configurable through Web UI and CLI, runtime agnostic, GitHub PR-first, Telegram-first, future-proof for rapidly changing AI tools, minimal in custom AI logic, and maximal in routing, policy, audit, and telemetry.
 
 ## Core Principle
 
-Do not build an AI coding agent. Do not build an IDE. Do not tightly couple to OpenCode, Cline, Hermes, ACP, Codex, Claude, or any one tool.
+Do not build an AI coding agent. Do not build an IDE. Do not build an LLM. Do not build a multi-agent swarm as the core abstraction. Do not tightly couple to OpenCode, Cline, Hermes, ACP, Codex, Claude, Gemini, Ollama, or any one tool.
 
-Build a thin governance/control plane that can plug into any runtime.
+Build a runtime control plane that can plug into any owned runtime.
 
 ## North Star
 
-Agent Governor should make the best locally available coding agent selectable at the moment a user writes a prompt, without compromising the approval-gated workflow. The product should keep a refreshed market view of prompt-capable CLI agents, show concrete install and setup commands, detect newly installed tools, and only route real work to agents that can be verified locally.
+Agent Governor should make the best available AI runtime selectable by policy at the moment a user writes a prompt, without compromising the approval-gated workflow. The product should keep a refreshed registry of prompt-capable runtimes, show concrete install and setup commands, detect newly installed tools, and only route real work to runtimes that can be verified locally or through a trusted node.
 
 Expected experience:
-- The dashboard prompt includes an agent selector for every prompt-runnable configured runtime.
-- The setup flow keeps scanning for more CLI agents and ranks market suggestions with a daily research stamp.
+- The dashboard prompt includes a runtime selector for every prompt-runnable configured runtime, while the router can choose automatically when policy has enough signal.
+- The setup flow keeps scanning for more runtimes and ranks market suggestions with a daily research stamp.
 - Each market suggestion includes install, setup, documentation, and suitability notes when known.
-- Once an agent is installed, detected, and configured as prompt-runnable, the user can run it against a generated sample repository before trusting it with a real repo.
+- Once a runtime is installed, detected, and configured as prompt-runnable, the user can run it against a generated sample repository before trusting it with a real repo.
 - Dry runs must execute in a temporary sample repo, log output under Agent Governor logs, and avoid commits, package installs, or repository mutation.
 
 ## Architecture
@@ -42,6 +42,7 @@ Core backend:
 - Git Worktree Manager
 - GitHub Manager
 - Audit Log
+- Runtime Telemetry
 
 Execution:
 - Local MacBook worker
@@ -215,12 +216,15 @@ Security rules:
 
 ## First Implementation Phase
 
+Phase 1 is about becoming the best AI runtime router. Runtime registry, gateway, policy routing, fallback, and observability take priority over broad P2P delegation or agent-fabric features.
+
 1. Monorepo setup, config loader, SQLite schema, core types, CLI doctor, GitHub CLI wrapper, Git worktree wrapper.
 2. Telegram bot, repo registry, `/repos`, `/newrepo`, `/selectrepo`, `/idea`, `/status`.
 3. Workflow engine, approval engine, requirements generation using ShellAdapter initially, design generation using ShellAdapter/OpenCodeAdapter.
 4. OpenCodeAdapter, task worktree, implementation run, commit/push branch, PR creation.
 5. Web UI dashboard, repos, tasks, runtimes, approvals.
 6. Runtime plugin polish, placeholder adapters, better logs, retry/fallback routing.
+7. Runtime observability: log runtime, latency, estimated cost, success/failure, task type, and fallback path for every execution.
 
 ## Definition Of Done For First Usable Version
 

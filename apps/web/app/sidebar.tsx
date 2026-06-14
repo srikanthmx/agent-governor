@@ -17,7 +17,7 @@ const nav = [
   },
   {
     href: "/settings/agents",
-    label: "Agents",
+    label: "Runtimes",
     icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1.5l5 3v6l-5 3-5-3v-6l5-3z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/><path d="M5.25 7.5h4.5M7.5 5.25v4.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>,
   },
   {
@@ -54,6 +54,7 @@ export function Sidebar({ mode = "local" }: { mode?: WebAppMode }) {
           </div>
           <div>
             <div className="text-[13px] font-semibold text-[var(--ag-text-1)] leading-none">Agent Governor</div>
+            <div className="mt-0.5 text-[10px] text-[var(--ag-text-4)]">Runtime OS</div>
           </div>
         </Link>
       </div>
