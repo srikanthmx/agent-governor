@@ -17,6 +17,7 @@ export function TaskActions({
   taskId,
   status,
   approvalStage,
+  hasApprovalForStage,
   canRun,
   isWaiting,
   isTerminal,
@@ -25,6 +26,7 @@ export function TaskActions({
   taskId: number;
   status: string;
   approvalStage: string | null;
+  hasApprovalForStage: boolean;
   canRun: boolean;
   isWaiting: boolean;
   isTerminal: boolean;
@@ -43,6 +45,11 @@ export function TaskActions({
   const isPlanningGate = approvalStage === "requirements" || approvalStage === "design";
   const isPrGate = approvalStage === "pr";
   const modelOptions = selectedRuntime?.models ?? [];
+  const runLabel = approvalStage === "requirements"
+    ? "Run Design"
+    : approvalStage === "design"
+      ? "Run Implementation"
+      : "Run Next Stage";
 
   useEffect(() => {
     const nextRuntime = headlessRuntimes.find((runtime) => runtime.id === runtimeId);
@@ -81,6 +88,10 @@ export function TaskActions({
     );
   }
 
+  if (status === "PR_OPENED") {
+    return <span className="ag-badge ag-badge-success">PR Opened</span>;
+  }
+
   /* ─── Waiting for approval ─── */
   if (isWaiting && approvalStage) {
     return (
@@ -89,8 +100,12 @@ export function TaskActions({
           <div className={`ag-message ${message.ok ? "ag-message-success" : "ag-message-error"}`}>{message.text}</div>
         )}
 
-        {/* Runtime selector — only for planning gates with multiple runtimes */}
-        {enabled.length > 1 && isPlanningGate && (
+        {hasApprovalForStage && (
+          <div className="ag-message ag-message-success">Approved. Start the next command when ready.</div>
+        )}
+
+        {/* Runtime selector — only before running the next CLI stage */}
+        {enabled.length > 1 && isPlanningGate && hasApprovalForStage && (
           <div className="flex items-center gap-2">
             <select
               className="ag-select h-[28px] text-[12px]"
@@ -119,34 +134,52 @@ export function TaskActions({
 
         {/* Primary action row */}
         <div className="flex items-center gap-2">
-          {isPrGate ? (
+          {isPrGate && hasApprovalForStage ? (
             <button
               className="ag-btn ag-btn-success"
               disabled={busy}
               onClick={() => doAction("/api/tasks/pr", { taskId })}
             >
-              {busy ? "Opening..." : "Approve & Open PR"}
+              {busy ? "Opening..." : "Open PR"}
+            </button>
+          ) : isPrGate ? (
+            <button
+              className="ag-btn ag-btn-success"
+              disabled={busy}
+              onClick={() => doAction("/api/tasks/approve", { taskId, stage: approvalStage, autoRun: false })}
+            >
+              {busy ? "..." : "Approve PR"}
+            </button>
+          ) : hasApprovalForStage ? (
+            <button
+              className="ag-btn ag-btn-primary"
+              disabled={busy || !runtimeId}
+              onClick={() => doAction("/api/tasks/run", { taskId, runtimeId, model })}
+            >
+              {busy ? "Running..." : runLabel}
             </button>
           ) : (
             <button
               className="ag-btn ag-btn-success"
               disabled={busy}
-              onClick={() => doAction("/api/tasks/approve", { taskId, stage: approvalStage, runtimeId, model, autoRun: true })}
+              onClick={() => doAction("/api/tasks/approve", { taskId, stage: approvalStage, autoRun: false })}
             >
-              {busy ? "..." : isPlanningGate ? `Approve & Run Next` : `Approve ${label}`}
+              {busy ? "..." : `Approve ${label}`}
             </button>
           )}
-          <button
-            className="ag-btn ag-btn-danger ag-btn-sm"
-            disabled={busy}
-            onClick={() => doAction("/api/tasks/reject", { taskId, stage: approvalStage })}
-          >
-            Reject
-          </button>
+          {!hasApprovalForStage && (
+            <button
+              className="ag-btn ag-btn-danger ag-btn-sm"
+              disabled={busy}
+              onClick={() => doAction("/api/tasks/reject", { taskId, stage: approvalStage })}
+            >
+              Reject
+            </button>
+          )}
         </div>
 
         {/* Secondary actions — collapsed by default */}
-        {(isPlanningGate || !isPrGate) && (
+        {!hasApprovalForStage && !isPrGate && (
           <div>
             <button
               className="text-[11px] text-[var(--ag-text-4)] hover:text-[var(--ag-text-3)] transition-colors"
@@ -156,22 +189,9 @@ export function TaskActions({
             </button>
             {showMore && (
               <div className="flex items-center gap-2 mt-2 ag-animate-in">
-                <button
-                  className="ag-btn ag-btn-ghost ag-btn-sm"
-                  disabled={busy}
-                  onClick={() => doAction("/api/tasks/approve", { taskId, stage: approvalStage, autoRun: false })}
-                >
-                  Approve Only
-                </button>
-                {isPlanningGate && (
-                  <button
-                    className="ag-btn ag-btn-ghost ag-btn-sm"
-                    disabled={busy}
-                    onClick={() => doAction("/api/tasks/approve-planning", { taskId, runtimeId, model })}
-                  >
-                    Skip All Planning
-                  </button>
-                )}
+                <div className="text-[11px] text-[var(--ag-text-4)]">
+                  Approval is explicit. The next CLI stage starts only from the run button shown after approval.
+                </div>
               </div>
             )}
           </div>

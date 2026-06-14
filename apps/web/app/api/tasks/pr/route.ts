@@ -23,15 +23,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : String(error) }, { status: 400 });
   }
 
-  const approve = await execa("pnpm", ["agent", "approve", taskId, "--stage", "pr", "--owner", owner], {
-    cwd: projectRoot(process.cwd()),
-    reject: false
-  });
-  const approveOutput = [approve.stdout, approve.stderr].filter(Boolean).join("\n");
-  if (approve.exitCode !== 0) {
-    return NextResponse.json({ ok: false, output: approveOutput, error: approveOutput || "PR approval failed" }, { status: 500 });
-  }
-
   const open = await execa("pnpm", ["agent", "open-pr", taskId, "--owner", owner], {
     cwd: projectRoot(process.cwd()),
     reject: false
@@ -40,7 +31,7 @@ export async function POST(request: Request) {
   return NextResponse.json(
     {
       ok: open.exitCode === 0,
-      output: [approveOutput, openOutput].filter(Boolean).join("\n"),
+      output: openOutput,
       prUrl: open.exitCode === 0 ? open.stdout.trim().split(/\n/).at(-1) : undefined,
       error: open.exitCode === 0 ? undefined : openOutput || "Open PR failed"
     },

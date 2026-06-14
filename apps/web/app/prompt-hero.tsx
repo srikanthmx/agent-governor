@@ -3,23 +3,23 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type Repo = { id: number; name: string; github: string };
-type Runtime = { id: string; label: string; enabled: boolean; models?: string[]; defaultModel?: string | null; executionMode?: "headless" | "interactive" };
+type Runtime = { id: string; label: string; enabled: boolean; promptSelectable?: boolean; models?: string[]; defaultModel?: string | null; executionMode?: "headless" | "interactive"; marketSummary?: string | null };
 
 export function PromptHero({ repos, runtimes }: { repos: Repo[]; runtimes: Runtime[] }) {
-  const enabledRuntimes = useMemo(() => runtimes.filter((runtime) => runtime.enabled), [runtimes]);
+  const selectableRuntimes = useMemo(() => runtimes.filter((runtime) => runtime.promptSelectable ?? runtime.enabled), [runtimes]);
   const [prompt, setPrompt] = useState("");
   const [repo, setRepo] = useState(repos[0]?.name ?? "");
-  const [runtimeId, setRuntimeId] = useState(enabledRuntimes[0]?.id ?? "");
-  const selectedRuntime = useMemo(() => enabledRuntimes.find((r) => r.id === runtimeId), [runtimeId, enabledRuntimes]);
+  const [runtimeId, setRuntimeId] = useState(selectableRuntimes[0]?.id ?? "");
+  const selectedRuntime = useMemo(() => selectableRuntimes.find((r) => r.id === runtimeId), [runtimeId, selectableRuntimes]);
   const [model, setModel] = useState(selectedRuntime?.defaultModel ?? selectedRuntime?.models?.[0] ?? "");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    const rt = enabledRuntimes.find((r) => r.id === runtimeId);
+    const rt = selectableRuntimes.find((r) => r.id === runtimeId);
     setModel(rt?.defaultModel ?? rt?.models?.[0] ?? "");
-  }, [runtimeId, enabledRuntimes]);
+  }, [runtimeId, selectableRuntimes]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -90,7 +90,7 @@ export function PromptHero({ repos, runtimes }: { repos: Repo[]; runtimes: Runti
     }
   }
 
-  const canSubmit = prompt.trim().length > 0 && repo && !busy;
+  const canSubmit = prompt.trim().length > 0 && repo && !busy && selectableRuntimes.length > 0;
   const modelOptions = selectedRuntime?.models ?? [];
 
   return (
@@ -128,13 +128,14 @@ export function PromptHero({ repos, runtimes }: { repos: Repo[]; runtimes: Runti
             </select>
 
             {/* Runtime selector */}
-            {enabledRuntimes.length > 1 && (
+            {selectableRuntimes.length > 0 && (
               <select
                 className="ag-inline-select"
                 value={runtimeId}
                 onChange={(e) => setRuntimeId(e.target.value)}
+                title={selectedRuntime?.marketSummary ?? "Select agent"}
               >
-                {enabledRuntimes.map((r) => (
+                {selectableRuntimes.map((r) => (
                   <option key={r.id} value={r.id}>{r.label}</option>
                 ))}
               </select>

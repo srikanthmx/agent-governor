@@ -4,8 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 
 type Repo = { id: number; name: string; github: string };
 type GithubRepo = { id: number; nameWithOwner: string; description: string; visibility: string; defaultBranch: string; url: string };
-type Runtime = { id: string; label: string; type: string; enabled: boolean; detected: boolean; detectedCommand: string | null; command: string | null; capabilities: string[] };
-type LocalTool = { id: string; label: string; kind: string; runnable: boolean; detected: boolean; detectedBy: string | null; capabilities: string[]; promptRunnable?: boolean; status?: string; reason?: string; installCommand?: string; installUrl?: string; notes?: string };
 
 async function api(url: string, opts?: RequestInit) {
   const res = await fetch(url, opts);
@@ -22,19 +20,16 @@ interface AuthState {
 }
 
 export function SetupSteps({
-  repos, githubRepos, runtimes, localTools,
+  repos, githubRepos,
 }: {
   repos: Repo[];
   githubRepos: GithubRepo[];
-  runtimes: Runtime[];
-  localTools: LocalTool[];
 }) {
   const [step, setStep] = useState(0);
 
   const steps = [
     { num: 1, title: "GitHub", done: githubRepos.length > 0 },
     { num: 2, title: "Repositories", done: repos.length > 0 },
-    { num: 3, title: "Agents", done: runtimes.some((r) => r.enabled) },
   ];
 
   return (
@@ -72,7 +67,6 @@ export function SetupSteps({
       <div className="ag-animate-in" key={step}>
         {step === 0 && <GitHubStep />}
         {step === 1 && <RepoStep repos={repos} githubRepos={githubRepos} />}
-        {step === 2 && <AgentStep runtimes={runtimes} localTools={localTools} />}
       </div>
     </div>
   );
@@ -303,84 +297,6 @@ function RepoStep({ repos, githubRepos }: { repos: Repo[]; githubRepos: GithubRe
             </div>
           </div>
         )}
-      </div>
-    </div>
-  );
-}
-
-/* ─── Step 3: Agents ─── */
-function AgentStep({ runtimes, localTools }: { runtimes: Runtime[]; localTools: LocalTool[] }) {
-  const runnableRuntimes = runtimes.filter((r) => r.enabled);
-  return (
-    <div className="space-y-5">
-      <div className="ag-card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-[15px] font-semibold text-[var(--ag-text-1)]">Runtime Agents</h3>
-            <p className="text-[12px] text-[var(--ag-text-4)] mt-0.5">
-              Only these agents can execute prompts today. {runnableRuntimes.length}/{runtimes.length} runnable.
-            </p>
-          </div>
-          <button className="ag-btn ag-btn-ghost ag-btn-sm" onClick={() => window.location.reload()}>
-            Rescan
-          </button>
-        </div>
-
-        <div className="grid gap-2 sm:grid-cols-2">
-          {runtimes.map((r) => (
-            <div
-              key={r.id}
-              className={`p-3 rounded-lg border transition-all ${
-                r.enabled
-                  ? "border-[rgba(34,197,94,0.2)] bg-[rgba(34,197,94,0.03)]"
-                  : "border-[var(--ag-border)] bg-[var(--ag-bg)]"
-              }`}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[13px] font-medium text-[var(--ag-text-1)]">{r.label}</span>
-                <span className={`ag-badge ag-badge-sm ${r.detected ? "ag-badge-success" : r.enabled ? "ag-badge-active" : "ag-badge-neutral"}`}>
-                  {r.detected ? "Detected" : r.enabled ? "Configured" : "Missing"}
-                </span>
-              </div>
-              {r.command && (
-                <div className="font-mono text-[11px] text-[var(--ag-text-4)] mt-1 truncate">{r.command}</div>
-              )}
-              <div className="flex flex-wrap gap-1 mt-2">
-                {r.capabilities.map((c) => (
-                  <span key={c} className="text-[10px] font-medium text-[var(--ag-text-4)] uppercase tracking-wider bg-[var(--ag-raised)] px-1.5 py-0.5 rounded">{c}</span>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="ag-card p-5">
-        <h3 className="text-[15px] font-semibold text-[var(--ag-text-1)]">Local Tools</h3>
-        <p className="text-[12px] text-[var(--ag-text-4)] mt-0.5 mb-4">
-          A tool appears in task flows only after this check proves it has a prompt-capable CLI or bridge.
-        </p>
-        <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
-          {localTools.map((t) => (
-            <div key={t.id} className={`flex items-center justify-between gap-3 p-2.5 rounded-lg border border-[var(--ag-border)] ${t.detected ? "" : "opacity-40"}`}>
-              <div className="min-w-0">
-                <div className="text-[13px] font-medium text-[var(--ag-text-1)] truncate">{t.label}</div>
-                <div className="text-[10px] text-[var(--ag-text-4)] truncate">{t.reason ?? t.kind}</div>
-                {!t.promptRunnable && t.installCommand && (
-                  <code className="mt-1 block truncate text-[10px] text-[var(--ag-text-3)]">{t.installCommand}</code>
-                )}
-              </div>
-              <div className="flex flex-shrink-0 items-center gap-2">
-                {t.installUrl && (
-                  <a className="text-[11px] text-[var(--ag-blue)] hover:underline" href={t.installUrl} target="_blank" rel="noreferrer">Install</a>
-                )}
-                <span className={`ag-badge ag-badge-sm ${t.promptRunnable ? "ag-badge-success" : t.detected ? "ag-badge-waiting" : "ag-badge-neutral"}`}>
-                  {t.promptRunnable ? "Runnable" : t.detected ? "Bridge needed" : "Missing CLI"}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );

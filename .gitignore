@@ -3,6 +3,10 @@ dist/
 .next/
 .turbo/
 .env
+.DS_Store
+_tmp_*
+vendor/hermes-agent/
+data/
 data/*.sqlite
 data/*.sqlite-*
 logs/*

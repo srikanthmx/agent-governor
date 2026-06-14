@@ -76,6 +76,9 @@ export interface LocalToolCatalogItem {
   installUrl?: string;
   setupCommand?: string;
   notes?: string;
+  marketRank?: number;
+  marketSummary?: string;
+  researchSources?: string[];
 }
 
 export interface LocalToolDetection extends LocalToolCatalogItem {
@@ -86,29 +89,30 @@ export interface LocalToolDetection extends LocalToolCatalogItem {
   promptRunnable: boolean;
   status: "runnable" | "missing_cli" | "bridge_required" | "disabled";
   reason: string;
+  researchUpdatedAt: string;
 }
 
 export const localToolCatalog: LocalToolCatalogItem[] = [
-  { id: "codex", label: "Codex CLI", kind: "agent", runnable: true, commandCandidates: ["codex"], appCandidates: ["/Applications/Codex.app"], capabilities: ["requirements", "design", "implementation", "review"], installUrl: "https://openai.com/codex/", setupCommand: "codex login", notes: "Uses local Codex CLI authentication/subscription." },
-  { id: "claude", label: "Claude Code", kind: "agent", runnable: true, commandCandidates: ["claude"], capabilities: ["requirements", "design", "implementation", "review"], installCommand: "brew install --cask claude-code", installUrl: "https://code.claude.com/docs/en/setup", setupCommand: "claude", notes: "Official Anthropic terminal coding agent." },
-  { id: "gemini", label: "Gemini CLI", kind: "agent", runnable: true, commandCandidates: ["gemini"], capabilities: ["requirements", "design", "implementation", "review"], installCommand: "npm install -g @google/gemini-cli", installUrl: "https://github.com/google-gemini/gemini-cli", setupCommand: "gemini", notes: "Official Google Gemini terminal agent." },
-  { id: "opencode", label: "OpenCode", kind: "agent", runnable: true, commandCandidates: ["opencode"], capabilities: ["requirements", "design", "implementation", "review"], installCommand: "curl -fsSL https://opencode.ai/install | bash", installUrl: "https://opencode.ai/docs/", setupCommand: "opencode auth login", notes: "Open source terminal coding agent with `opencode run`." },
-  { id: "aider", label: "Aider", kind: "agent", runnable: true, commandCandidates: ["aider"], capabilities: ["implementation", "review"], installCommand: "python -m pip install aider-install && aider-install", installUrl: "https://aider.chat/docs/install.html", setupCommand: "aider", notes: "Open source CLI pair programmer." },
-  { id: "goose", label: "Goose", kind: "agent", runnable: true, commandCandidates: ["goose"], capabilities: ["requirements", "design", "implementation", "review"], installCommand: "brew install block-goose-cli", installUrl: "https://block.github.io/goose/docs/getting-started/installation/", setupCommand: "goose configure", notes: "Local extensible coding agent from Block." },
-  { id: "qwen-code", label: "Qwen Code", kind: "agent", runnable: true, commandCandidates: ["qwen", "qwen-code"], capabilities: ["requirements", "design", "implementation", "review"], installCommand: "npm install -g @qwen-code/qwen-code", installUrl: "https://github.com/QwenLM/qwen-code", setupCommand: "qwen", notes: "Terminal coding agent in the Qwen ecosystem." },
-  { id: "amp", label: "Amp", kind: "agent", runnable: true, commandCandidates: ["amp"], capabilities: ["requirements", "design", "implementation", "review"], installUrl: "https://ampcode.com/", setupCommand: "amp", notes: "CLI coding agent; install details may vary by account." },
-  { id: "amazon-q", label: "Amazon Q Developer CLI", kind: "agent", runnable: true, commandCandidates: ["q"], capabilities: ["requirements", "design", "implementation", "review"], installUrl: "https://docs.aws.amazon.com/amazonq/latest/qdeveloper-ug/command-line.html", setupCommand: "q login", notes: "AWS local CLI coding assistant." },
-  { id: "openhands", label: "OpenHands", kind: "agent", runnable: true, commandCandidates: ["openhands"], capabilities: ["requirements", "design", "implementation", "review"], installUrl: "https://docs.all-hands.dev/", notes: "Open source software engineering agent; often run via Docker or server mode." },
+  { id: "codex", label: "Codex CLI", kind: "agent", runnable: true, commandCandidates: ["codex"], appCandidates: ["/Applications/Codex.app"], capabilities: ["requirements", "design", "implementation", "review"], installUrl: "https://openai.com/codex/", setupCommand: "codex login", notes: "Uses local Codex CLI authentication/subscription.", marketRank: 1, marketSummary: "Strong default for governed local repo work when the Codex CLI is authenticated.", researchSources: ["OpenAI Codex product docs"] },
+  { id: "claude", label: "Claude Code", kind: "agent", runnable: true, commandCandidates: ["claude"], capabilities: ["requirements", "design", "implementation", "review"], installCommand: "brew install --cask claude-code", installUrl: "https://code.claude.com/docs/en/setup", setupCommand: "claude", notes: "Official Anthropic terminal coding agent.", marketRank: 2, marketSummary: "Popular terminal agent with broad planning and implementation coverage.", researchSources: ["Anthropic Claude Code setup docs"] },
+  { id: "gemini", label: "Gemini CLI", kind: "agent", runnable: true, commandCandidates: ["gemini"], capabilities: ["requirements", "design", "implementation", "review"], installCommand: "npm install -g @google/gemini-cli", installUrl: "https://github.com/google-gemini/gemini-cli", setupCommand: "gemini", notes: "Official Google Gemini terminal agent.", marketRank: 3, marketSummary: "Useful general-purpose CLI option for teams already using Google models.", researchSources: ["Google Gemini CLI repository"] },
+  { id: "opencode", label: "OpenCode", kind: "agent", runnable: true, commandCandidates: ["opencode"], capabilities: ["requirements", "design", "implementation", "review"], installCommand: "curl -fsSL https://opencode.ai/install | bash", installUrl: "https://opencode.ai/docs/", setupCommand: "opencode auth login", notes: "Open source terminal coding agent with `opencode run`.", marketRank: 4, marketSummary: "Open source CLI agent with a configurable command surface.", researchSources: ["OpenCode docs"] },
+  { id: "aider", label: "Aider", kind: "agent", runnable: true, commandCandidates: ["aider"], capabilities: ["implementation", "review"], installCommand: "python -m pip install aider-install && aider-install", installUrl: "https://aider.chat/docs/install.html", setupCommand: "aider", notes: "Open source CLI pair programmer.", marketRank: 5, marketSummary: "Mature pair-programming CLI, best for focused implementation and review loops.", researchSources: ["Aider install docs"] },
+  { id: "goose", label: "Goose", kind: "agent", runnable: true, commandCandidates: ["goose"], capabilities: ["requirements", "design", "implementation", "review"], installCommand: "brew install block-goose-cli", installUrl: "https://block.github.io/goose/docs/getting-started/installation/", setupCommand: "goose configure", notes: "Local extensible coding agent from Block.", marketRank: 6, marketSummary: "Extensible local agent worth tracking for MCP-heavy workflows.", researchSources: ["Goose installation docs"] },
+  { id: "qwen-code", label: "Qwen Code", kind: "agent", runnable: true, commandCandidates: ["qwen", "qwen-code"], capabilities: ["requirements", "design", "implementation", "review"], installCommand: "npm install -g @qwen-code/qwen-code", installUrl: "https://github.com/QwenLM/qwen-code", setupCommand: "qwen", notes: "Terminal coding agent in the Qwen ecosystem.", marketRank: 7, marketSummary: "Emerging CLI option for Qwen-backed coding workflows.", researchSources: ["Qwen Code repository"] },
+  { id: "amp", label: "Amp", kind: "agent", runnable: true, commandCandidates: ["amp"], capabilities: ["requirements", "design", "implementation", "review"], installUrl: "https://ampcode.com/", setupCommand: "amp", notes: "CLI coding agent; install details may vary by account.", marketRank: 8, marketSummary: "Commercial CLI coding agent to evaluate when account access is available.", researchSources: ["Amp product site"] },
+  { id: "amazon-q", label: "Amazon Q Developer CLI", kind: "agent", runnable: true, commandCandidates: ["q"], capabilities: ["requirements", "design", "implementation", "review"], installUrl: "https://docs.aws.amazon.com/amazonq/latest/qdeveloper-ug/command-line.html", setupCommand: "q login", notes: "AWS local CLI coding assistant.", marketRank: 9, marketSummary: "Best fit for AWS-heavy local development environments.", researchSources: ["Amazon Q Developer CLI docs"] },
+  { id: "openhands", label: "OpenHands", kind: "agent", runnable: true, commandCandidates: ["openhands"], capabilities: ["requirements", "design", "implementation", "review"], installUrl: "https://docs.all-hands.dev/", notes: "Open source software engineering agent; often run via Docker or server mode.", marketRank: 10, marketSummary: "Research target for server/Docker agent workflows rather than simple CLI routing.", researchSources: ["OpenHands docs"] },
   { id: "cline", label: "Cline", kind: "ide", runnable: false, commandCandidates: ["cline"], capabilities: ["design", "review"], installUrl: "https://cline.bot/", notes: "IDE extension; needs a bridge before Agent Governor can route prompts." },
   { id: "roo-code", label: "Roo Code", kind: "ide", runnable: false, commandCandidates: ["roo"], capabilities: ["design", "implementation", "review"], installUrl: "https://roocode.com/", notes: "IDE extension; needs a bridge before prompt routing." },
-  { id: "kiro", label: "Kiro", kind: "ide", runnable: false, commandCandidates: ["kiro"], appCandidates: ["/Applications/Kiro.app"], capabilities: ["design", "implementation", "review"], installUrl: "https://kiro.dev/", notes: "GUI IDE agent; bridge required for remote prompt routing." },
-  { id: "antigravity", label: "Google Antigravity", kind: "agent", runnable: true, commandCandidates: ["antigravity"], appCandidates: ["/Applications/Antigravity.app", "/Applications/Google Antigravity.app"], capabilities: ["interactive"], executionMode: "interactive", installUrl: "https://antigravity.google/", notes: "Interactive CLI chat target. Opens Antigravity UI; not headless artifact generation." },
-  { id: "cursor", label: "Cursor", kind: "ide", runnable: false, commandCandidates: ["cursor"], appCandidates: ["/Applications/Cursor.app"], capabilities: ["design", "implementation", "review"], installUrl: "https://cursor.com/", notes: "GUI IDE; use only after a prompt bridge is configured." },
-  { id: "windsurf", label: "Windsurf", kind: "ide", runnable: false, commandCandidates: ["windsurf"], appCandidates: ["/Applications/Windsurf.app"], capabilities: ["design", "implementation", "review"], installUrl: "https://windsurf.com/", notes: "GUI IDE; use only after a prompt bridge is configured." },
+  { id: "kiro", label: "Kiro", kind: "ide", runnable: true, commandCandidates: ["kiro", "/Applications/Kiro.app/Contents/Resources/app/bin/code"], appCandidates: ["/Applications/Kiro.app"], capabilities: ["interactive"], executionMode: "interactive", installUrl: "https://kiro.dev/", notes: "Interactive app target. Opens the repo and generated prompt file in Kiro." },
+  { id: "antigravity", label: "Google Antigravity", kind: "agent", runnable: true, commandCandidates: ["antigravity", "/Applications/Antigravity IDE.app/Contents/Resources/app/bin/antigravity-ide"], appCandidates: ["/Applications/Antigravity.app", "/Applications/Antigravity IDE.app", "/Applications/Google Antigravity.app"], capabilities: ["interactive"], executionMode: "interactive", installUrl: "https://antigravity.google/", notes: "Interactive app target. Opens the repo and generated prompt file in Antigravity; not headless artifact generation." },
+  { id: "cursor", label: "Cursor", kind: "ide", runnable: true, commandCandidates: ["cursor", "/Applications/Cursor.app/Contents/Resources/app/bin/cursor"], appCandidates: ["/Applications/Cursor.app"], capabilities: ["interactive"], executionMode: "interactive", installUrl: "https://cursor.com/", notes: "Interactive app target. Opens the repo and generated prompt file in Cursor." },
+  { id: "windsurf", label: "Windsurf", kind: "ide", runnable: true, commandCandidates: ["windsurf", "/Applications/Windsurf.app/Contents/Resources/app/bin/windsurf"], appCandidates: ["/Applications/Windsurf.app"], capabilities: ["interactive"], executionMode: "interactive", installUrl: "https://windsurf.com/", notes: "Interactive app target. Opens the repo and generated prompt file in Windsurf." },
   { id: "continue", label: "Continue", kind: "bridge", runnable: false, commandCandidates: ["continue"], capabilities: ["review"], installUrl: "https://docs.continue.dev/", notes: "Assistant framework; bridge work needed for governed prompt routing." },
-  { id: "zed", label: "Zed", kind: "ide", runnable: false, commandCandidates: ["zed"], appCandidates: ["/Applications/Zed.app"], capabilities: ["design", "implementation"], installUrl: "https://zed.dev/", notes: "IDE with agent integrations; bridge/ACP integration required." },
-  { id: "code", label: "VS Code", kind: "ide", runnable: false, commandCandidates: ["code"], appCandidates: ["/Applications/Visual Studio Code.app"], capabilities: ["design", "implementation"], installUrl: "https://code.visualstudio.com/", notes: "Editor shell, not a prompt agent by itself." },
-  { id: "jetbrains", label: "JetBrains IDE", kind: "ide", runnable: false, commandCandidates: ["idea", "webstorm", "pycharm"], appCandidates: ["/Applications/IntelliJ IDEA.app", "/Applications/WebStorm.app", "/Applications/PyCharm.app"], capabilities: ["design", "implementation"], installUrl: "https://www.jetbrains.com/ai/", notes: "IDE assistant surface; bridge required." },
+  { id: "zed", label: "Zed", kind: "ide", runnable: true, commandCandidates: ["zed"], appCandidates: ["/Applications/Zed.app"], capabilities: ["interactive"], executionMode: "interactive", installUrl: "https://zed.dev/", notes: "Interactive app target. Opens the repo and generated prompt file in Zed." },
+  { id: "code", label: "VS Code", kind: "ide", runnable: true, commandCandidates: ["code", "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"], appCandidates: ["/Applications/Visual Studio Code.app"], capabilities: ["interactive"], executionMode: "interactive", installUrl: "https://code.visualstudio.com/", notes: "Interactive editor target. Opens the repo and generated prompt file in VS Code." },
+  { id: "jetbrains", label: "JetBrains IDE", kind: "ide", runnable: true, commandCandidates: ["idea", "webstorm", "pycharm"], appCandidates: ["/Applications/IntelliJ IDEA.app", "/Applications/WebStorm.app", "/Applications/PyCharm.app"], capabilities: ["interactive"], executionMode: "interactive", installUrl: "https://www.jetbrains.com/ai/", notes: "Interactive IDE target. Opens the repo and generated prompt file in the installed JetBrains IDE." },
   { id: "junie", label: "JetBrains Junie", kind: "ide", runnable: false, commandCandidates: ["junie"], capabilities: ["design", "implementation", "review"], installUrl: "https://www.jetbrains.com/junie/", notes: "JetBrains agent; bridge required for prompt routing." },
   { id: "copilot", label: "GitHub Copilot", kind: "ide", runnable: false, commandCandidates: ["gh"], capabilities: ["review"], installUrl: "https://docs.github.com/en/copilot", notes: "Copilot surfaces vary; not treated as repo-editing CLI adapter yet." },
   { id: "gh", label: "GitHub CLI", kind: "cli", runnable: false, commandCandidates: ["gh"], capabilities: ["pr", "merge"] },
@@ -127,7 +131,11 @@ const detectCommandByAgentId: Record<string, string> = {
   claude: "claude",
   cline: "cline",
   codex: "codex",
+  cursor: "cursor",
   gemini: "gemini",
+  goose: "goose",
+  kiro: "kiro",
+  code: "code",
   opencode: "opencode"
 };
 
@@ -158,13 +166,20 @@ function promptCapabilityCheck(id: string, command: string): { ok: boolean; reas
     };
   }
   if (id === "antigravity") {
+    if (command.includes("antigravity-ide")) {
+      const result = commandOutput(command, ["--help"]);
+      return {
+        ok: result.ok && result.output.includes("Usage: antigravity-ide"),
+        reason: result.ok ? "Antigravity IDE launcher is available" : "Antigravity IDE launcher is not available"
+      };
+    }
     const result = commandOutput(command, ["chat", "--help"]);
     return {
       ok: result.ok && result.output.includes("Usage: antigravity chat"),
       reason: result.ok ? "antigravity chat is available" : "antigravity chat is not available"
     };
   }
-  if (["claude", "gemini", "opencode", "aider"].includes(id)) {
+  if (["claude", "gemini", "opencode", "aider", "goose", "qwen-code"].includes(id)) {
     const result = commandOutput(command, ["--help"]);
     return {
       ok: result.ok,
@@ -172,6 +187,17 @@ function promptCapabilityCheck(id: string, command: string): { ok: boolean; reas
     };
   }
   return { ok: true, reason: `${command} exists` };
+}
+
+function researchUpdatedAt(): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(new Date());
+  const value = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${value("year")}-${value("month")}-${value("day")}`;
 }
 
 function verifyCatalogItem(item: LocalToolCatalogItem, config?: AgentConfig): LocalToolDetection {
@@ -195,11 +221,25 @@ function verifyCatalogItem(item: LocalToolCatalogItem, config?: AgentConfig): Lo
       enabled: false,
       promptRunnable: false,
       status: detected ? "bridge_required" : "disabled",
-      reason: detected ? "Detected locally, but no prompt bridge is configured" : "Not found locally"
+      reason: detected ? "Detected locally, but no prompt bridge is configured" : "Not found locally",
+      researchUpdatedAt: researchUpdatedAt()
     };
   }
 
   if (!detectedCommand) {
+    if (item.executionMode === "interactive" && detectedBy) {
+      return {
+        ...item,
+        detected,
+        detectedBy,
+        configured: Boolean(configuredAgent),
+        enabled: true,
+        promptRunnable: true,
+        status: "runnable",
+        reason: `Installed app is available at ${detectedBy}`,
+        researchUpdatedAt: researchUpdatedAt()
+      };
+    }
     return {
       ...item,
       detected,
@@ -208,7 +248,8 @@ function verifyCatalogItem(item: LocalToolCatalogItem, config?: AgentConfig): Lo
       enabled: false,
       promptRunnable: false,
       status: "missing_cli",
-      reason: detectedBy ? "App found, but no prompt-capable CLI command is on PATH" : "No prompt-capable CLI command found"
+      reason: detectedBy ? "App found, but no prompt-capable CLI command is on PATH" : "No prompt-capable CLI command found",
+      researchUpdatedAt: researchUpdatedAt()
     };
   }
 
@@ -221,7 +262,8 @@ function verifyCatalogItem(item: LocalToolCatalogItem, config?: AgentConfig): Lo
     enabled: promptCheck.ok,
     promptRunnable: promptCheck.ok,
     status: promptCheck.ok ? "runnable" : "missing_cli",
-    reason: promptCheck.reason
+    reason: promptCheck.reason,
+    researchUpdatedAt: researchUpdatedAt()
   };
 }
 

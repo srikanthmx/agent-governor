@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import type { GovernorConfig } from "@agent-governor/config";
 import { nowIso, type RuntimeAdapter, type RuntimeType, type TaskRecord, type TaskStatus } from "@agent-governor/core";
@@ -89,6 +90,13 @@ function ensureTaskArtifacts(worktreePath: string, task: TaskRecord): void {
       writeFileSync(path, content);
     }
   }
+}
+
+function hasSourceChanges(worktreePath: string): boolean {
+  const result = spawnSync("git", ["-C", worktreePath, "status", "--porcelain", "--", ".", ":!.ai"], {
+    encoding: "utf8"
+  });
+  return result.status === 0 && result.stdout.trim().length > 0;
 }
 
 function stagesFor(config: GovernorConfig, workflowName: string): WorkflowStage[] {
@@ -446,20 +454,27 @@ export class WorkflowEngine {
         outputPath
       }
     });
+    let status = result.status;
+    let error = result.error;
+    if (input.stage === "implementation" && result.status === "success" && !hasSourceChanges(input.worktreePath)) {
+      status = "failed";
+      error = "Implementation completed without source changes outside .ai. Review the CLI output and run implementation again.";
+    }
+
     this.tasks.recordAgentRun({
       taskId: input.task.id,
       stage: input.stage,
       role: stageConfig.role,
       runtimeId: result.runtimeId ?? result.runId,
-      status: result.status,
+      status,
       logsPath: result.logsPath,
       startedAt,
       finishedAt: nowIso(),
-      error: result.error
+      error
     });
-    if (result.status !== "success") {
+    if (status !== "success") {
       this.tasks.updateStatus(input.task.id, "FAILED", input.stage);
-      throw new Error(result.error ?? `${input.stage} failed`);
+      throw new Error(error ?? `${input.stage} failed`);
     }
     this.tasks.updateStatus(input.task.id, input.status, input.stage);
   }

@@ -14,6 +14,17 @@ Do not build an AI coding agent. Do not build an IDE. Do not tightly couple to O
 
 Build a thin governance/control plane that can plug into any runtime.
 
+## North Star
+
+Agent Governor should make the best locally available coding agent selectable at the moment a user writes a prompt, without compromising the approval-gated workflow. The product should keep a refreshed market view of prompt-capable CLI agents, show concrete install and setup commands, detect newly installed tools, and only route real work to agents that can be verified locally.
+
+Expected experience:
+- The dashboard prompt includes an agent selector for every prompt-runnable configured runtime.
+- The setup flow keeps scanning for more CLI agents and ranks market suggestions with a daily research stamp.
+- Each market suggestion includes install, setup, documentation, and suitability notes when known.
+- Once an agent is installed, detected, and configured as prompt-runnable, the user can run it against a generated sample repository before trusting it with a real repo.
+- Dry runs must execute in a temporary sample repo, log output under Agent Governor logs, and avoid commits, package installs, or repository mutation.
+
 ## Architecture
 
 Interfaces:

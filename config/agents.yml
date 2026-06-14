@@ -91,7 +91,47 @@ agents:
     command: sh
     args:
       - -lc
-      - 'gemini -p "$(cat "$AGENT_GOVERNOR_PROMPT_FILE")"'
+      - 'gemini --skip-trust -p "$(cat "$AGENT_GOVERNOR_PROMPT_FILE")"'
+    capabilities:
+      - requirements
+      - design
+      - implementation
+      - review
+    preferredRoles:
+      - requirements_writer
+      - planner
+      - implementer
+      - reviewer
+
+  - id: goose
+    label: Goose
+    type: shell
+    enabled: false
+    detectCommand: goose
+    command: sh
+    args:
+      - -lc
+      - 'goose run -t "$(cat "$AGENT_GOVERNOR_PROMPT_FILE")"'
+    capabilities:
+      - requirements
+      - design
+      - implementation
+      - review
+    preferredRoles:
+      - requirements_writer
+      - planner
+      - implementer
+      - reviewer
+
+  - id: qwen-code
+    label: Qwen Code
+    type: shell
+    enabled: false
+    detectCommand: qwen
+    command: sh
+    args:
+      - -lc
+      - 'qwen -p "$(cat "$AGENT_GOVERNOR_PROMPT_FILE")"'
     capabilities:
       - requirements
       - design
@@ -120,16 +160,96 @@ agents:
       - design
       - review
 
+  - id: kiro
+    label: Kiro
+    type: shell
+    enabled: false
+    detectCommand: kiro
+    command: kiro
+    executionMode: interactive
+    args:
+      - --reuse-window
+      - "{repoPath}"
+      - "{promptFile}"
+    capabilities:
+      - interactive
+    preferredRoles:
+      - interactive
+
   - id: antigravity
     label: Google Antigravity
     type: shell
     enabled: false
-    detectCommand: antigravity
-    command: sh
+    detectCommand: /Applications/Antigravity IDE.app/Contents/Resources/app/bin/antigravity-ide
+    command: /Applications/Antigravity IDE.app/Contents/Resources/app/bin/antigravity-ide
     executionMode: interactive
     args:
-      - -lc
-      - 'antigravity chat --mode agent --reuse-window "$(cat "$AGENT_GOVERNOR_PROMPT_FILE")"'
+      - --reuse-window
+      - "{repoPath}"
+      - "{promptFile}"
+    capabilities:
+      - interactive
+    preferredRoles:
+      - interactive
+
+  - id: cursor
+    label: Cursor
+    type: shell
+    enabled: false
+    detectCommand: cursor
+    command: cursor
+    executionMode: interactive
+    args:
+      - --reuse-window
+      - "{repoPath}"
+      - "{promptFile}"
+    capabilities:
+      - interactive
+    preferredRoles:
+      - interactive
+
+  - id: windsurf
+    label: Windsurf
+    type: shell
+    enabled: false
+    detectCommand: windsurf
+    command: windsurf
+    executionMode: interactive
+    args:
+      - --reuse-window
+      - "{repoPath}"
+      - "{promptFile}"
+    capabilities:
+      - interactive
+    preferredRoles:
+      - interactive
+
+  - id: zed
+    label: Zed
+    type: shell
+    enabled: false
+    detectCommand: zed
+    command: zed
+    executionMode: interactive
+    args:
+      - "{repoPath}"
+      - "{promptFile}"
+    capabilities:
+      - interactive
+    preferredRoles:
+      - interactive
+
+  - id: code
+    label: VS Code
+    type: shell
+    enabled: false
+    detectCommand: /Applications/Visual Studio Code.app/Contents/Resources/app/bin/code
+    command: /Applications/Visual Studio Code.app/Contents/Resources/app/bin/code
+    executionMode: interactive
+    args:
+      - --reuse-window
+      - "{repoPath}"
+      - "{promptFile}"
     capabilities:
       - interactive
     preferredRoles:
@@ -137,14 +257,14 @@ agents:
 
 roles:
   requirements_writer:
-    preferred: [codex, claude, gemini, opencode, shell]
+    preferred: [codex, claude, gemini, opencode, goose, qwen-code, shell]
     fallback: [aider]
   planner:
-    preferred: [codex, claude, gemini, opencode]
+    preferred: [codex, claude, gemini, opencode, goose, qwen-code]
     fallback: [cline, shell]
   implementer:
-    preferred: [codex, claude, gemini, opencode, aider]
+    preferred: [codex, claude, gemini, opencode, goose, qwen-code, aider]
     fallback: [shell]
   reviewer:
-    preferred: [codex, claude, gemini, opencode, cline]
+    preferred: [codex, claude, gemini, opencode, goose, qwen-code, cline]
     fallback: [shell]

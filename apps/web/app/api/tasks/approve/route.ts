@@ -37,7 +37,7 @@ export async function POST(request: Request) {
   });
   const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
   let runOutput = "";
-  const shouldAutoRun = body.autoRun !== false && (body.stage === "requirements" || body.stage === "design");
+  const shouldAutoRun = body.autoRun === true && (body.stage === "requirements" || body.stage === "design");
   if (result.exitCode === 0 && shouldAutoRun) {
     const runArgs = ["agent", "run-task", taskId];
     if (body.runtimeId) {

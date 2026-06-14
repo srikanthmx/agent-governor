@@ -1,11 +1,35 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { loadConfig } from "@agent-governor/config";
+import { loadConfig, type AgentConfig } from "@agent-governor/config";
 import { execa } from "execa";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
+
+type Agent = AgentConfig["agents"][number];
+
+function interactiveLaunch(agent: Agent, repoPath: string, promptPath: string): { command: string; args: string[] } {
+  if (agent.detectedCommand?.endsWith(".app")) {
+    return { command: "open", args: ["-a", agent.detectedCommand, repoPath, promptPath] };
+  }
+
+  const command = agent.detectedCommand && existsSync(agent.detectedCommand)
+    ? agent.detectedCommand
+    : agent.command;
+  if (!command) {
+    throw new Error(`${agent.id} does not have a launch command`);
+  }
+
+  return {
+    command,
+    args: (agent.args ?? [])
+      .map((arg) => arg
+        .replaceAll("{promptFile}", promptPath)
+        .replaceAll("{repoPath}", repoPath)
+        .replaceAll("{model}", agent.defaultModel ?? ""))
+  };
+}
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({})) as {
@@ -19,7 +43,7 @@ export async function POST(request: Request) {
 
   const config = loadConfig(process.cwd());
   const agent = config.agents.agents.find((candidate) => candidate.id === body.runtimeId);
-  if (!agent?.enabled || agent.executionMode !== "interactive" || !agent.command) {
+  if (!agent?.enabled || agent.executionMode !== "interactive") {
     return NextResponse.json({ ok: false, error: `${body.runtimeId} is not an enabled interactive agent` }, { status: 400 });
   }
 
@@ -37,11 +61,8 @@ export async function POST(request: Request) {
     const promptPath = join(runDir, "prompt.md");
     writeFileSync(promptPath, body.prompt);
 
-    const args = (agent.args ?? [])
-      .map((arg) => arg
-        .replaceAll("{promptFile}", promptPath)
-        .replaceAll("{model}", agent.defaultModel ?? ""));
-    const result = await execa(agent.command, args, {
+    const launch = interactiveLaunch(agent, repo.local_path, promptPath);
+    const result = await execa(launch.command, launch.args, {
       cwd: repo.local_path,
       env: {
         ...process.env,

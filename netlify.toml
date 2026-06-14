@@ -1,0 +1,9 @@
+[build]
+  command = "pnpm --filter @agent-governor/web build"
+  publish = "apps/web/.next"
+
+[build.environment]
+  AG_WEB_MODE = "control-plane"
+  NETLIFY_NEXT_SKEW_PROTECTION = "true"
+  NODE_VERSION = "20"
+  PNPM_VERSION = "9.6.0"

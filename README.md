@@ -56,6 +56,146 @@ This is the honest product boundary:
 - CLI/headless tools such as Codex, Claude Code, Gemini CLI, OpenCode, Aider, and Shell can become runnable adapters when installed and authenticated locally.
 - GUI-only tools are not runnable agents until they expose a CLI, local API, extension bridge, MCP/ACP-style bridge, or another documented prompt interface.
 
+## Web Control Plane
+
+The web app can also run as a hosted Governor control plane. In this mode, the Netlify app is the shared interface for Telegram progress links, approvals, agent logs, PR links, and deploy preview links. Desktop/laptop apps remain the worker nodes that connect outbound and execute local CLIs or app-backed agents.
+
+Agent Governor is intentionally not a cloud AI-agent runner. The hosted app coordinates peers and records activity; all coding agents execute on desktops/laptops that opted in.
+
+```bash
+AG_WEB_MODE=control-plane pnpm --filter @agent-governor/web build
+```
+
+Netlify configuration is included in `netlify.toml`:
+
+```toml
+[build]
+  command = "pnpm --filter @agent-governor/web build"
+  publish = "apps/web/.next"
+```
+
+Recommended deployment shape:
+- Netlify hosts the control-plane web app.
+- Telegram posts task updates and approvals to the hosted endpoint.
+- Desktop peers heartbeat to the hosted app and stream run events/logs.
+- Telegram messages include a progress URL such as `/tasks/6`.
+- After PR creation, both Telegram and the web task room show the PR URL and preview URL when available.
+
+Peer identity and sharing:
+- A desktop generates a short pairing code, similar to TV sign-in flows used by streaming apps.
+- The user enters that code in the web app to attach the desktop to their account.
+- The desktop reports detected agents, but each agent has a sharing scope.
+- `private` agents are usable only by that desktop owner.
+- `p2p_shared` agents are eligible for routing from other approved users/workspaces.
+- Routing must consider peer online status, repo allowlist, agent sharing scope, execution mode, and owner approval state.
+- The cloud stores the minimum ledger required for coordination, audit, and reports: peer status, task state, approval records, run events, redacted/capped logs, PR links, preview links, and analytics.
+
+## Hermes Bridge
+
+Agent Governor can expose a Hermes-facing bridge without becoming a cloud AI agent. For normal Hermes model calls, Governor behaves as an OpenAI-compatible local model adapter and returns a model response with no Git, task, PR, or peer-routing side effects. The separate agent-run APIs are only for Governor's own task orchestration demos.
+
+Bridge endpoints:
+
+```text
+GET  /api/hermes/health
+POST /api/hermes/v1/chat/completions
+POST /api/hermes/v1/agent-runs
+GET  /api/hermes/v1/agent-runs/:runId/events
+GET  /api/hermes/v1/agent-runs/:runId/events?stream=true
+```
+
+The model-compatible endpoint accepts OpenAI-style chat completion requests:
+
+```json
+{
+  "model": "agent-governor-local",
+  "messages": [
+    { "role": "user", "content": "Implement TASK-8 in abandoned-circle" }
+  ],
+  "metadata": {
+    "repo": "abandoned-circle",
+    "preferred_agent": "gemini"
+  }
+}
+```
+
+The chat completion response is a normal OpenAI-style `chat.completion`. It intentionally does not include a `governor` task object, progress URL, PR URL, or lifecycle events. Hermes can use this endpoint as a model replacement. Governor's PR/task behavior remains available only through explicit Governor routes.
+
+## Hermes Sidecar
+
+The Hermes Agent repo can also run parallel to Agent Governor as a local sidecar. Governor does not replace Hermes or become a cloud agent; it controls the connection, proxies local Hermes API calls, and still routes coding work only to opted-in desktop peers.
+
+The repo is cloned at:
+
+```text
+vendor/hermes-agent
+```
+
+Sidecar control endpoints:
+
+```text
+GET  /api/hermes/sidecar
+POST /api/hermes/sidecar          { "action": "bootstrap" | "start" | "stop" }
+ANY  /api/hermes/proxy/:path*     proxies to http://127.0.0.1:8642/:path
+```
+
+Sample end-to-end dry-run flows:
+
+```text
+GET  /api/flows/telegram-hermes
+POST /api/flows/telegram-hermes   { "chatId": "sample-chat", "prompt": "..." }
+GET  /api/flows/cron-hermes
+POST /api/flows/cron-hermes       { "cronName": "daily-agent-market", "prompt": "..." }
+```
+
+These dry runs model `Telegram or cron -> Hermes -> Governor bridge -> opted-in desktop peer -> Hermes -> Telegram or cron report`. They do not require a real Telegram token and do not execute cloud agents.
+
+Telegram hook endpoints:
+
+```text
+GET  /api/telegram/webhook
+POST /api/telegram/webhook       receives Telegram updates and routes text prompts to governor/hermes-bridge
+GET  /api/telegram/set-webhook
+POST /api/telegram/set-webhook   calls Telegram setWebhook when TELEGRAM_BOT_TOKEN and AG_PUBLIC_WEB_URL are configured
+```
+
+Required production environment:
+
+```sh
+TELEGRAM_BOT_TOKEN=...
+AG_PUBLIC_WEB_URL=https://your-governor-web-url
+TELEGRAM_WEBHOOK_SECRET=optional-secret-token
+```
+
+Without `TELEGRAM_BOT_TOKEN`, the webhook still runs locally and returns the exact `sendMessage` payload it would post to Telegram.
+
+For local development without a public HTTPS webhook, run the polling bridge instead:
+
+```sh
+TELEGRAM_BOT_TOKEN=... node scripts/telegram-hermes-poller.mjs
+```
+
+The poller calls Telegram `getUpdates`, forwards text messages to `http://127.0.0.1:3004/api/telegram/webhook`, and lets the Governor webhook send the Hermes/Governor result back to the same chat.
+
+Manual setup command:
+
+```sh
+cd vendor/hermes-agent
+uv venv .venv --python 3.11
+uv pip install -e '.[web]'
+```
+
+Manual start command:
+
+```sh
+HERMES_HOME=../../data/hermes-home \
+API_SERVER_ENABLED=true \
+API_SERVER_KEY=change-me-local-dev \
+.venv/bin/python -m hermes_cli.main gateway
+```
+
+When started by Governor, Hermes listens on `http://127.0.0.1:8642` and the 3004 control plane exposes status, start/stop controls, and proxy access. The API key should be overridden with `HERMES_SIDECAR_KEY` outside local development.
+
 ## Configuration
 
 Copy `.env.example` to `.env` for secrets. Secrets should not be committed.
