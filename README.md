@@ -69,23 +69,109 @@ GET /api/hermes/v1/governor/usage
 GET /api/hermes/v1/governor/audit
 ```
 
-## Required Tools
+## Before Opening The App
 
-- Node.js
-- pnpm
+Do these steps first from a fresh clone. The app can open without them, but GitHub sync, clone, PR, and runtime routing will feel broken until the dependencies are in place.
+
+### 1. Install System Tools
+
+Required:
+
+- Node.js 20+
+- pnpm 9+
 - git
-- GitHub CLI (`gh`)
-- SQLite
-- tmux optional
-- OpenCode optional
 
-## Install
+Recommended:
+
+- GitHub CLI (`gh`) for PR create/merge fallback
+- Codex CLI, Gemini CLI, Claude Code, Ollama, Aider, or other local runtimes you want Governor to route to
+- tmux optional
+
+Check the basics:
+
+```bash
+node --version
+pnpm --version
+git --version
+```
+
+### 2. Install Workspace Dependencies
 
 ```bash
 pnpm install
+```
+
+### 3. Create Local Environment
+
+```bash
+cp .env.example .env
+```
+
+At minimum, set the local database and GitHub defaults:
+
+```bash
+DATABASE_PATH=./data/agent-governor.sqlite
+GITHUB_DEFAULT_BRANCH=main
+GITHUB_OWNER=your-github-user-or-org
+```
+
+### 4. Configure GitHub Web SSO
+
+Create a GitHub OAuth App before the first web run:
+
+```text
+GitHub -> Settings -> Developer settings -> OAuth Apps -> New OAuth App
+```
+
+Use these local values:
+
+```text
+Homepage URL: http://localhost:3000
+Authorization callback URL: http://localhost:3000/api/github/callback
+```
+
+Then add the app credentials to `.env`:
+
+```bash
+GITHUB_CLIENT_ID=...
+GITHUB_CLIENT_SECRET=...
+GITHUB_OAUTH_REDIRECT_URI=http://localhost:3000/api/github/callback
+GITHUB_OAUTH_SCOPES="repo read:user user:email read:org"
+```
+
+For PR creation and merge, also authenticate the GitHub CLI until those operations are fully token-backed:
+
+```bash
+gh auth login
+```
+
+### 5. Initialize And Check Governor
+
+```bash
 pnpm agent setup
 pnpm agent doctor
+pnpm typecheck
 ```
+
+### 6. Open The First-Run Flow
+
+Run the web app:
+
+```bash
+pnpm --filter @agent-governor/web dev
+```
+
+Open:
+
+```text
+http://localhost:3000/first-run
+```
+
+The first-run page walks through:
+
+1. GitHub browser SSO
+2. Repository sync and clone/link
+3. Runtime detection
 
 ## Desktop App
 
@@ -95,7 +181,7 @@ Run Agent Governor as a local desktop app:
 pnpm desktop
 ```
 
-The desktop app starts or reuses the local Next.js UI on `http://localhost:3002` and opens it in an Electron shell. Runtime execution still happens locally on this Mac through the same CLI adapters, git worktrees, SQLite database, logs, and GitHub CLI integration.
+The desktop app starts or reuses the local Next.js UI on `http://localhost:3002` and opens it in an Electron shell. Complete the dependency steps above first, then open `/first-run` in the app. Runtime execution still happens locally on this Mac through the same CLI adapters, git worktrees, SQLite database, logs, and GitHub integration.
 
 This is the honest product boundary:
 - CLI/headless tools such as Codex, Claude Code, Gemini CLI, OpenCode, Aider, and Shell can become runnable adapters when installed and authenticated locally.
@@ -306,24 +392,17 @@ Implemented skeleton commands include `/repos`, `/selectrepo`, `/idea`, `/tasks`
 
 ## GitHub Setup
 
-Browser SSO is the primary web flow. Create a GitHub OAuth App and set:
+Browser SSO is the primary web flow. Configure the OAuth app and `.env` before opening the app, as described in [Before Opening The App](#before-opening-the-app).
 
-```bash
-GITHUB_CLIENT_ID=...
-GITHUB_CLIENT_SECRET=...
-GITHUB_OAUTH_REDIRECT_URI=http://localhost:3000/api/github/callback
-GITHUB_OAUTH_SCOPES="repo read:user user:email read:org"
-```
-
-For hosted deployments, set `GITHUB_OAUTH_REDIRECT_URI` to:
+For hosted deployments, use a hosted callback URL:
 
 ```text
 https://your-governor-web-url/api/github/callback
 ```
 
-Then use Setup -> GitHub -> Sign in with GitHub SSO. The web token is stored locally under `data/github-auth.json`, which is ignored by Git.
+Then use First Run -> GitHub -> Sign in with GitHub SSO. The web token is stored locally under `data/github-auth.json`, which is ignored by Git.
 
-The GitHub CLI is still supported as a local fallback:
+The GitHub CLI is still required for PR create/merge fallback:
 
 ```bash
 gh auth login
