@@ -1,7 +1,9 @@
 import { spawn } from "node:child_process";
 import { NextResponse } from "next/server";
+import { createGithubState, githubAuthorizeUrl, githubOAuthConfigured, githubRedirectUri } from "../_oauth";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 let activeLogin:
   | {
@@ -22,7 +24,27 @@ function parseLoginOutput(output: string): { code?: string; url?: string } {
   };
 }
 
-export async function POST() {
+export async function POST(request: Request) {
+  if (githubOAuthConfigured()) {
+    const state = createGithubState();
+    const authUrl = githubAuthorizeUrl({ state, redirectUri: githubRedirectUri(request) });
+    const response = NextResponse.json({
+      pending: true,
+      web: true,
+      authUrl,
+      url: authUrl,
+      message: "Redirect the browser to GitHub to sign in."
+    });
+    response.cookies.set("ag_github_oauth_state", state, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 10 * 60,
+      path: "/"
+    });
+    return response;
+  }
+
   if (activeLogin && !activeLogin.done && Date.now() - activeLogin.startedAt < 10 * 60 * 1000) {
     const parsed = parseLoginOutput(activeLogin.output);
     return NextResponse.json({ ...parsed, pending: true, output: activeLogin.output });
@@ -66,7 +88,26 @@ export async function POST() {
   return NextResponse.json({ pending: true, output: activeLogin.output });
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  if (githubOAuthConfigured()) {
+    const state = createGithubState();
+    const authUrl = githubAuthorizeUrl({ state, redirectUri: githubRedirectUri(request) });
+    const response = NextResponse.json({
+      pending: false,
+      web: true,
+      authUrl,
+      url: authUrl
+    });
+    response.cookies.set("ag_github_oauth_state", state, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 10 * 60,
+      path: "/"
+    });
+    return response;
+  }
+
   if (!activeLogin) {
     return NextResponse.json({ pending: false });
   }

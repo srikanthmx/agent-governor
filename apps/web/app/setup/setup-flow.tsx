@@ -15,11 +15,15 @@ async function readJson(res: Response) {
 
 interface AuthState {
   authenticated?: boolean;
+  provider?: string;
   code?: string;
   url?: string;
+  authUrl?: string;
   output?: string;
   pending?: boolean;
   done?: boolean;
+  web?: boolean;
+  login?: string;
 }
 
 export function SetupFlow({
@@ -33,7 +37,7 @@ export function SetupFlow({
   const [activeStep, setActiveStep] = useState(0);
 
   const steps = [
-    { title: "GitHub", description: "Authenticate with GitHub CLI" },
+    { title: "GitHub", description: "Sign in with GitHub" },
     { title: "Repositories", description: "Clone or link repos to govern" },
     { title: "Agents", description: "Detect local AI coding tools" },
   ];
@@ -87,7 +91,12 @@ function GitHubStep() {
     setBusy(true);
     try {
       const res = await fetch("/api/github/auth", { method: "POST" });
-      setAuth(await readJson(res));
+      const result = await readJson(res);
+      if (result.authUrl) {
+        window.location.href = result.authUrl;
+        return;
+      }
+      setAuth(result);
     } finally { setBusy(false); }
   }
 
@@ -116,7 +125,7 @@ function GitHubStep() {
         <div>
           <h2 className="text-base font-semibold text-[var(--ag-heading)]">GitHub Authentication</h2>
           <p className="mt-1 text-sm text-[var(--ag-muted)]">
-            {auth.authenticated ? "Connected to GitHub." : "Sign in with the GitHub CLI to sync your repositories."}
+            {auth.authenticated ? `Connected to GitHub${auth.login ? ` as ${auth.login}` : ""}.` : "Sign in with GitHub in your browser to sync your repositories."}
           </p>
         </div>
         <div className={`ag-badge ${auth.authenticated ? "ag-badge-success" : "ag-badge-muted"}`}>
@@ -127,7 +136,7 @@ function GitHubStep() {
       {!auth.authenticated && !auth.code && (
         <div className="flex gap-2">
           <button className="ag-btn ag-btn-primary" disabled={busy} onClick={startLogin}>
-            {busy ? "Starting..." : "Sign in with GitHub"}
+            {busy ? "Starting..." : "Sign in with GitHub SSO"}
           </button>
           <button className="ag-btn ag-btn-secondary" disabled={busy} onClick={checkStatus}>Check status</button>
         </div>

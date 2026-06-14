@@ -306,7 +306,24 @@ Implemented skeleton commands include `/repos`, `/selectrepo`, `/idea`, `/tasks`
 
 ## GitHub Setup
 
-Authenticate the GitHub CLI:
+Browser SSO is the primary web flow. Create a GitHub OAuth App and set:
+
+```bash
+GITHUB_CLIENT_ID=...
+GITHUB_CLIENT_SECRET=...
+GITHUB_OAUTH_REDIRECT_URI=http://localhost:3000/api/github/callback
+GITHUB_OAUTH_SCOPES="repo read:user user:email read:org"
+```
+
+For hosted deployments, set `GITHUB_OAUTH_REDIRECT_URI` to:
+
+```text
+https://your-governor-web-url/api/github/callback
+```
+
+Then use Setup -> GitHub -> Sign in with GitHub SSO. The web token is stored locally under `data/github-auth.json`, which is ignored by Git.
+
+The GitHub CLI is still supported as a local fallback:
 
 ```bash
 gh auth login

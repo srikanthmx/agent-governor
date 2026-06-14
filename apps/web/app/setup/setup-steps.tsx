@@ -13,10 +13,14 @@ async function api(url: string, opts?: RequestInit) {
 
 interface AuthState {
   authenticated?: boolean;
+  provider?: string;
   code?: string;
   url?: string;
+  authUrl?: string;
   output?: string;
   done?: boolean;
+  web?: boolean;
+  login?: string;
 }
 
 export function SetupSteps({
@@ -81,7 +85,14 @@ function GitHubStep() {
   async function checkStatus() { setAuth(await api("/api/github/status")); }
   async function startLogin() {
     setBusy(true);
-    try { setAuth(await api("/api/github/auth", { method: "POST" })); }
+    try {
+      const result = await api("/api/github/auth", { method: "POST" });
+      if (result.authUrl) {
+        window.location.href = result.authUrl;
+        return;
+      }
+      setAuth(result);
+    }
     finally { setBusy(false); }
   }
   async function refreshLogin() {
@@ -110,7 +121,7 @@ function GitHubStep() {
         <div>
           <h2 className="text-[15px] font-semibold text-[var(--ag-text-1)]">GitHub Connection</h2>
           <p className="text-[13px] text-[var(--ag-text-3)] mt-1">
-            {auth.authenticated ? "Connected. You can sync your repositories." : "Sign in with the GitHub CLI to pull your repos."}
+            {auth.authenticated ? `Connected${auth.login ? ` as ${auth.login}` : ""}. You can sync your repositories.` : "Sign in with GitHub in your browser to pull your repos."}
           </p>
         </div>
         <span className={`ag-badge ${auth.authenticated ? "ag-badge-success" : "ag-badge-neutral"}`}>
@@ -121,7 +132,7 @@ function GitHubStep() {
       {!auth.authenticated && !auth.code && (
         <div className="flex gap-2">
           <button className="ag-btn ag-btn-primary" disabled={busy} onClick={startLogin}>
-            Sign in with GitHub
+            Sign in with GitHub SSO
           </button>
           <button className="ag-btn ag-btn-ghost" disabled={busy} onClick={checkStatus}>Recheck</button>
         </div>

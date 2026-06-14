@@ -4,12 +4,16 @@ import { useEffect, useState } from "react";
 
 interface AuthState {
   authenticated?: boolean;
+  provider?: string;
   output?: string;
   code?: string;
   url?: string;
+  authUrl?: string;
   pending?: boolean;
   done?: boolean;
   error?: string;
+  web?: boolean;
+  login?: string;
 }
 
 async function readJsonResponse(response: Response) {
@@ -39,7 +43,12 @@ export function GitHubAuthPanel() {
     setSyncResult("");
     try {
       const response = await fetch("/api/github/auth", { method: "POST" });
-      setAuth(await readJsonResponse(response));
+      const result = await readJsonResponse(response);
+      if (result.authUrl) {
+        window.location.href = result.authUrl;
+        return;
+      }
+      setAuth(result);
     } finally {
       setBusy(false);
     }
@@ -79,11 +88,15 @@ export function GitHubAuthPanel() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold uppercase text-zinc-400">Authentication</h2>
-            <p className="mt-1 text-sm text-zinc-500">{auth.authenticated ? "GitHub CLI is authenticated." : "GitHub CLI is not authenticated."}</p>
+            <p className="mt-1 text-sm text-zinc-500">
+              {auth.authenticated
+                ? `GitHub is authenticated${auth.login ? ` as ${auth.login}` : ""}.`
+                : "GitHub is not authenticated. Use browser SSO when configured, with CLI fallback for local development."}
+            </p>
           </div>
           <div className="flex gap-2">
             <button className="h-9 rounded-md border border-zinc-700 px-3 text-sm" disabled={busy} onClick={checkStatus}>Check</button>
-            <button className="h-9 rounded-md bg-zinc-100 px-3 text-sm text-zinc-950" disabled={busy} onClick={startLogin}>Start Login</button>
+            <button className="h-9 rounded-md bg-zinc-100 px-3 text-sm text-zinc-950" disabled={busy} onClick={startLogin}>Sign in with GitHub</button>
           </div>
         </div>
 
