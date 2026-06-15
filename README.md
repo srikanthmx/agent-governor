@@ -123,11 +123,18 @@ Create a GitHub OAuth App before the first web run:
 GitHub -> Settings -> Developer settings -> OAuth Apps -> New OAuth App
 ```
 
-Use these local values:
+Use the callback URL shown on the first-run GitHub step. For local web development the default is:
 
 ```text
 Homepage URL: http://localhost:3000
 Authorization callback URL: http://localhost:3000/api/github/callback
+```
+
+For the desktop app, the local UI normally runs on `http://127.0.0.1:3002`, so the first-run page may show:
+
+```text
+Homepage URL: http://127.0.0.1:3002
+Authorization callback URL: http://127.0.0.1:3002/api/github/callback
 ```
 
 Then add the app credentials to `.env`:
@@ -135,9 +142,10 @@ Then add the app credentials to `.env`:
 ```bash
 GITHUB_CLIENT_ID=...
 GITHUB_CLIENT_SECRET=...
-GITHUB_OAUTH_REDIRECT_URI=http://localhost:3000/api/github/callback
 GITHUB_OAUTH_SCOPES="repo read:user user:email read:org"
 ```
+
+`GITHUB_OAUTH_REDIRECT_URI` is optional locally. Leave it unset if you want the app to use the current browser origin, or set it only when you need a fixed hosted callback URL.
 
 For PR creation and merge, also authenticate the GitHub CLI until those operations are fully token-backed:
 
@@ -400,7 +408,7 @@ For hosted deployments, use a hosted callback URL:
 https://your-governor-web-url/api/github/callback
 ```
 
-Then use First Run -> GitHub -> Sign in with GitHub SSO. The web token is stored locally under `data/github-auth.json`, which is ignored by Git.
+Then use First Run -> GitHub -> Sign in with GitHub in browser. The web token is stored locally under `data/github-auth.json`, which is ignored by Git.
 
 The GitHub CLI is still required for PR create/merge fallback:
 

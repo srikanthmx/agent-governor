@@ -19,6 +19,10 @@ interface AuthState {
   code?: string;
   url?: string;
   authUrl?: string;
+  callbackUrl?: string;
+  oauthConfigured?: boolean;
+  setupRequired?: boolean;
+  error?: string;
   output?: string;
   pending?: boolean;
   done?: boolean;
@@ -116,7 +120,14 @@ function GitHubStep() {
 
   async function checkStatus() {
     const res = await fetch("/api/github/status", { cache: "no-store" });
-    setAuth(await readJson(res));
+    const status = await readJson(res);
+    if (status.authenticated) {
+      setAuth(status);
+      return;
+    }
+    const authRes = await fetch("/api/github/auth", { cache: "no-store" });
+    const authMeta = await readJson(authRes);
+    setAuth({ ...status, ...authMeta });
   }
 
   async function startLogin() {
@@ -166,12 +177,15 @@ function GitHubStep() {
       </div>
 
       {!auth.authenticated && !auth.code && (
-        <div className="flex gap-2">
-          <button className="ag-btn ag-btn-primary" disabled={busy} onClick={startLogin}>
-            {busy ? "Starting..." : "Sign in with GitHub SSO"}
-          </button>
-          <button className="ag-btn ag-btn-secondary" disabled={busy} onClick={checkStatus}>Check status</button>
-        </div>
+        <>
+          {auth.setupRequired && <GitHubSsoSetupNotice auth={auth} />}
+          <div className="flex gap-2">
+            <button className="ag-btn ag-btn-primary" disabled={busy || auth.setupRequired} onClick={startLogin}>
+              {busy ? "Starting..." : "Sign in with GitHub in browser"}
+            </button>
+            <button className="ag-btn ag-btn-secondary" disabled={busy} onClick={checkStatus}>Check again</button>
+          </div>
+        </>
       )}
 
       {auth.code && (
@@ -198,6 +212,29 @@ function GitHubStep() {
       )}
 
       {syncResult && <div className="text-sm text-[var(--ag-green)]">{syncResult}</div>}
+    </div>
+  );
+}
+
+function GitHubSsoSetupNotice({ auth }: { auth: AuthState }) {
+  return (
+    <div className="rounded-lg bg-[color-mix(in_srgb,var(--ag-primary)_8%,var(--ag-surface))] border border-[var(--ag-line)] p-4">
+      <div className="text-sm font-semibold text-[var(--ag-heading)]">GitHub browser SSO needs one-time setup</div>
+      <p className="mt-1 text-sm text-[var(--ag-muted)]">
+        Create a GitHub OAuth App, add this callback URL, then set the env vars and restart the app.
+      </p>
+      <div className="mt-3 space-y-2 text-xs text-[var(--ag-soft)]">
+        <div>
+          Callback URL:
+          <code className="ml-2 rounded bg-[var(--ag-bg)] px-2 py-1 font-mono text-[var(--ag-heading)]">{auth.callbackUrl ?? "/api/github/callback"}</code>
+        </div>
+        <div>
+          Required env:
+          <code className="ml-2 rounded bg-[var(--ag-bg)] px-2 py-1 font-mono text-[var(--ag-heading)]">GITHUB_CLIENT_ID</code>
+          <code className="ml-2 rounded bg-[var(--ag-bg)] px-2 py-1 font-mono text-[var(--ag-heading)]">GITHUB_CLIENT_SECRET</code>
+        </div>
+      </div>
+      {auth.error && <p className="mt-3 text-xs text-[var(--ag-muted)]">{auth.error}</p>}
     </div>
   );
 }

@@ -17,6 +17,10 @@ interface AuthState {
   code?: string;
   url?: string;
   authUrl?: string;
+  callbackUrl?: string;
+  oauthConfigured?: boolean;
+  setupRequired?: boolean;
+  error?: string;
   output?: string;
   done?: boolean;
   web?: boolean;
@@ -82,7 +86,15 @@ function GitHubStep() {
   const [syncMsg, setSyncMsg] = useState("");
   const [busy, setBusy] = useState(false);
 
-  async function checkStatus() { setAuth(await api("/api/github/status")); }
+  async function checkStatus() {
+    const status = await api("/api/github/status");
+    if (status.authenticated) {
+      setAuth(status);
+      return;
+    }
+    const authMeta = await api("/api/github/auth");
+    setAuth({ ...status, ...authMeta });
+  }
   async function startLogin() {
     setBusy(true);
     try {
@@ -130,12 +142,28 @@ function GitHubStep() {
       </div>
 
       {!auth.authenticated && !auth.code && (
-        <div className="flex gap-2">
-          <button className="ag-btn ag-btn-primary" disabled={busy} onClick={startLogin}>
-            Sign in with GitHub SSO
-          </button>
-          <button className="ag-btn ag-btn-ghost" disabled={busy} onClick={checkStatus}>Recheck</button>
-        </div>
+        <>
+          {auth.setupRequired && (
+            <div className="p-4 rounded-lg bg-[var(--ag-bg)] border border-[var(--ag-border)]">
+              <div className="text-[13px] font-medium text-[var(--ag-text-1)]">GitHub browser SSO needs one-time setup</div>
+              <p className="text-[12px] text-[var(--ag-text-4)] mt-1">Create a GitHub OAuth App, add this callback URL, set the env vars, then restart the app.</p>
+              <div className="mt-3 space-y-2 text-[12px] text-[var(--ag-text-3)]">
+                <div>Callback URL: <code className="px-2 py-1 rounded bg-[var(--ag-raised)] font-mono text-[var(--ag-text-1)]">{auth.callbackUrl ?? "/api/github/callback"}</code></div>
+                <div>
+                  Required env: <code className="px-2 py-1 rounded bg-[var(--ag-raised)] font-mono text-[var(--ag-text-1)]">GITHUB_CLIENT_ID</code>{" "}
+                  <code className="px-2 py-1 rounded bg-[var(--ag-raised)] font-mono text-[var(--ag-text-1)]">GITHUB_CLIENT_SECRET</code>
+                </div>
+              </div>
+              {auth.error && <p className="text-[12px] text-[var(--ag-text-4)] mt-3">{auth.error}</p>}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <button className="ag-btn ag-btn-primary" disabled={busy || auth.setupRequired} onClick={startLogin}>
+              Sign in with GitHub in browser
+            </button>
+            <button className="ag-btn ag-btn-ghost" disabled={busy} onClick={checkStatus}>Recheck</button>
+          </div>
+        </>
       )}
 
       {auth.code && (

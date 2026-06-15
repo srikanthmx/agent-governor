@@ -9,6 +9,9 @@ interface AuthState {
   code?: string;
   url?: string;
   authUrl?: string;
+  callbackUrl?: string;
+  oauthConfigured?: boolean;
+  setupRequired?: boolean;
   pending?: boolean;
   done?: boolean;
   error?: string;
@@ -34,8 +37,15 @@ export function GitHubAuthPanel() {
   const [busy, setBusy] = useState(false);
 
   async function checkStatus() {
-      const response = await fetch("/api/github/status", { cache: "no-store" });
-    setAuth(await readJsonResponse(response));
+    const response = await fetch("/api/github/status", { cache: "no-store" });
+    const status = await readJsonResponse(response);
+    if (status.authenticated) {
+      setAuth(status);
+      return;
+    }
+    const authResponse = await fetch("/api/github/auth", { cache: "no-store" });
+    const authMeta = await readJsonResponse(authResponse);
+    setAuth({ ...status, ...authMeta });
   }
 
   async function startLogin() {
@@ -91,14 +101,31 @@ export function GitHubAuthPanel() {
             <p className="mt-1 text-sm text-zinc-500">
               {auth.authenticated
                 ? `GitHub is authenticated${auth.login ? ` as ${auth.login}` : ""}.`
-                : "GitHub is not authenticated. Use browser SSO when configured, with CLI fallback for local development."}
+                : "GitHub is not authenticated. Sign in with browser SSO after the OAuth app is configured."}
             </p>
           </div>
           <div className="flex gap-2">
             <button className="h-9 rounded-md border border-zinc-700 px-3 text-sm" disabled={busy} onClick={checkStatus}>Check</button>
-            <button className="h-9 rounded-md bg-zinc-100 px-3 text-sm text-zinc-950" disabled={busy} onClick={startLogin}>Sign in with GitHub</button>
+            <button className="h-9 rounded-md bg-zinc-100 px-3 text-sm text-zinc-950" disabled={busy || auth.setupRequired} onClick={startLogin}>Sign in with GitHub</button>
           </div>
         </div>
+
+        {auth.setupRequired ? (
+          <div className="mt-4 rounded-md border border-zinc-800 bg-zinc-950 p-4">
+            <p className="text-sm font-medium text-zinc-200">GitHub browser SSO needs one-time setup.</p>
+            <p className="mt-1 text-sm text-zinc-500">Create a GitHub OAuth App, add this callback URL, set the env vars, then restart the app.</p>
+            <div className="mt-3 space-y-2 text-xs text-zinc-400">
+              <div>
+                Callback URL: <code className="rounded bg-black px-2 py-1 text-zinc-200">{auth.callbackUrl ?? "/api/github/callback"}</code>
+              </div>
+              <div>
+                Required env: <code className="rounded bg-black px-2 py-1 text-zinc-200">GITHUB_CLIENT_ID</code>{" "}
+                <code className="rounded bg-black px-2 py-1 text-zinc-200">GITHUB_CLIENT_SECRET</code>
+              </div>
+            </div>
+            {auth.error ? <p className="mt-3 text-xs text-zinc-500">{auth.error}</p> : null}
+          </div>
+        ) : null}
 
         {auth.code ? (
           <div className="mt-4 rounded-md border border-zinc-800 bg-zinc-950 p-4">
