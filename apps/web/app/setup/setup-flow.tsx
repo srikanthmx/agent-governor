@@ -116,6 +116,7 @@ export function SetupFlow({
 function GitHubStep() {
   const [auth, setAuth] = useState<AuthState>({});
   const [syncResult, setSyncResult] = useState("");
+  const [terminalResult, setTerminalResult] = useState<{ ok: boolean; message: string; command?: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const autoSynced = useRef(false);
 
@@ -133,6 +134,7 @@ function GitHubStep() {
 
   async function startLogin() {
     setBusy(true);
+    setTerminalResult(null);
     try {
       const res = await fetch("/api/github/auth", { method: "POST" });
       const result = await readJson(res);
@@ -141,6 +143,22 @@ function GitHubStep() {
         return;
       }
       setAuth(result);
+    } finally { setBusy(false); }
+  }
+
+  async function startTerminalLogin() {
+    setBusy(true);
+    setTerminalResult(null);
+    try {
+      const res = await fetch("/api/github/terminal-login", { method: "POST" });
+      const result = await readJson(res);
+      setTerminalResult({
+        ok: Boolean(result.ok),
+        message: result.ok
+          ? "Terminal opened. Complete the GitHub browser login there, then return here and click Check again."
+          : result.error ?? "Could not open Terminal automatically.",
+        command: result.command
+      });
     } finally { setBusy(false); }
   }
 
@@ -199,12 +217,27 @@ function GitHubStep() {
       {!auth.authenticated && !auth.code && (
         <>
           {auth.setupRequired && <GitHubSsoSetupNotice auth={auth} />}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button className="ag-btn ag-btn-primary" disabled={busy || auth.setupRequired} onClick={startLogin}>
               {busy ? "Starting..." : "Sign in with GitHub in browser"}
             </button>
+            <button className="ag-btn ag-btn-secondary" disabled={busy} onClick={startTerminalLogin}>
+              Open Terminal GitHub login
+            </button>
             <button className="ag-btn ag-btn-secondary" disabled={busy} onClick={checkStatus}>Check again</button>
           </div>
+          {terminalResult && (
+            <div className={`rounded-lg border px-4 py-3 text-sm ${
+              terminalResult.ok
+                ? "border-[color-mix(in_srgb,var(--ag-green)_35%,var(--ag-line))] bg-[color-mix(in_srgb,var(--ag-green)_8%,var(--ag-surface))] text-[var(--ag-heading)]"
+                : "border-[color-mix(in_srgb,var(--ag-coral)_35%,var(--ag-line))] bg-[color-mix(in_srgb,var(--ag-coral)_8%,var(--ag-surface))] text-[var(--ag-heading)]"
+            }`}>
+              <div>{terminalResult.message}</div>
+              {!terminalResult.ok && terminalResult.command && (
+                <code className="mt-2 block overflow-x-auto rounded bg-[var(--ag-bg)] px-2 py-1 font-mono text-xs text-[var(--ag-muted)]">{terminalResult.command}</code>
+              )}
+            </div>
+          )}
         </>
       )}
 
@@ -244,7 +277,7 @@ function GitHubSsoSetupNotice({ auth }: { auth: AuthState }) {
     <div className="rounded-lg bg-[color-mix(in_srgb,var(--ag-primary)_8%,var(--ag-surface))] border border-[var(--ag-line)] p-4">
       <div className="text-sm font-semibold text-[var(--ag-heading)]">GitHub browser SSO needs one-time setup</div>
       <p className="mt-1 text-sm text-[var(--ag-muted)]">
-        Create a GitHub OAuth App, add this callback URL, then set the env vars and restart the app.
+        Create a GitHub OAuth App, add this callback URL, then set the env vars and restart the app. For local first run, you can also use the Terminal GitHub login button below.
       </p>
       <div className="mt-3 space-y-2 text-xs text-[var(--ag-soft)]">
         <div>

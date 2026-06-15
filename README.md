@@ -117,7 +117,7 @@ GITHUB_OWNER=your-github-user-or-org
 
 ### 4. Configure GitHub Web SSO
 
-Create a GitHub OAuth App before the first web run:
+Create a GitHub OAuth App before the first web run if you want the in-app browser OAuth flow:
 
 ```text
 GitHub -> Settings -> Developer settings -> OAuth Apps -> New OAuth App
@@ -146,6 +146,8 @@ GITHUB_OAUTH_SCOPES="repo read:user user:email read:org"
 ```
 
 `GITHUB_OAUTH_REDIRECT_URI` is optional locally. Leave it unset if you want the app to use the current browser origin, or set it only when you need a fixed hosted callback URL.
+
+For local desktop setup, First Run -> GitHub also includes `Open Terminal GitHub login`. That button opens Terminal, runs `gh auth login --web` when needed, and syncs repositories with `pnpm agent sync-github-repos --limit 1000`.
 
 For PR creation and merge, also authenticate the GitHub CLI until those operations are fully token-backed:
 
