@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { RepoWorkbench } from "../dashboard-actions";
 import { getDashboardData } from "../data";
 import { webAppMode } from "../deployment";
 
@@ -10,7 +11,7 @@ export default function ReposPage() {
     redirect("/");
   }
 
-  const { repos, runtimes } = getDashboardData();
+  const { repos, runtimes, githubRepos } = getDashboardData();
   const agents = runtimes.filter((r) => r.enabled).length;
 
   return (
@@ -18,6 +19,24 @@ export default function ReposPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-[18px] font-semibold text-[var(--ag-text-1)]">Repositories</h1>
         <Link href="/setup" className="ag-btn ag-btn-primary">Add Repo</Link>
+      </div>
+
+      <div className="mb-5 grid gap-3 md:grid-cols-3">
+        <div className="ag-card p-4">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ag-text-4)]">Synced From GitHub</div>
+          <div className="mt-1 text-2xl font-semibold text-[var(--ag-text-1)]">{githubRepos.length}</div>
+          <div className="mt-1 text-xs text-[var(--ag-text-4)]">Available to clone or link into Governor.</div>
+        </div>
+        <div className="ag-card p-4">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ag-text-4)]">Managed By Governor</div>
+          <div className="mt-1 text-2xl font-semibold text-[var(--ag-text-1)]">{repos.length}</div>
+          <div className="mt-1 text-xs text-[var(--ag-text-4)]">Already connected for runtime work.</div>
+        </div>
+        <div className="ag-card p-4">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ag-text-4)]">Runnable Runtimes</div>
+          <div className="mt-1 text-2xl font-semibold text-[var(--ag-text-1)]">{agents}</div>
+          <div className="mt-1 text-xs text-[var(--ag-text-4)]">Available for tasks on managed repos.</div>
+        </div>
       </div>
 
       {repos.length === 0 ? (
@@ -28,11 +47,16 @@ export default function ReposPage() {
             </svg>
           </div>
           <div className="ag-empty-title">No repositories yet</div>
-          <div className="ag-empty-description">Add a repository to start routing AI runtime work against your code.</div>
+          <div className="ag-empty-description">
+            {githubRepos.length > 0
+              ? `${githubRepos.length} GitHub repos are synced. Clone one below to start routing AI runtime work against your code.`
+              : "Add a repository to start routing AI runtime work against your code."}
+          </div>
           <Link href="/setup" className="ag-btn ag-btn-primary mt-5">Go to Setup</Link>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="mb-5 space-y-2">
+          <h2 className="text-[13px] font-semibold uppercase tracking-wide text-[var(--ag-text-4)]">Managed Repositories</h2>
           {repos.map((repo) => (
             <div key={repo.id} className="ag-task-row">
               <div className="min-w-0 flex-1">
@@ -47,6 +71,8 @@ export default function ReposPage() {
           ))}
         </div>
       )}
+
+      <RepoWorkbench githubRepos={githubRepos} managedRepos={repos} />
     </div>
   );
 }

@@ -39,12 +39,12 @@ export function SetupFlow({
   localTools: LocalTool[];
 }) {
   const runnableRuntimes = runtimes.filter((runtime) => runtime.enabled);
-  const initialStep = githubRepos.length === 0 ? 0 : repos.length === 0 ? 1 : 2;
+  const initialStep = githubRepos.length === 0 ? 0 : repos.length === 0 ? 1 : runnableRuntimes.length === 0 ? 2 : 1;
   const [activeStep, setActiveStep] = useState(initialStep);
 
   const steps = [
     { title: "GitHub", description: "Sign in with GitHub", done: githubRepos.length > 0 },
-    { title: "Repository", description: "Clone or link code", done: repos.length > 0 },
+    { title: "Repository", description: `${githubRepos.length} synced, ${repos.length} managed`, done: repos.length > 0 },
     { title: "Runtimes", description: "Check local workers", done: runnableRuntimes.length > 0 },
   ];
   const completeCount = steps.filter((step) => step.done).length;
