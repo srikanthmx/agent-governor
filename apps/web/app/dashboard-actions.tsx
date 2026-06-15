@@ -105,7 +105,9 @@ export function RepoWorkbench({ githubRepos, managedRepos }: { githubRepos: Gith
         <div>
           <div className="ag-kicker text-xs uppercase">[ repo intake ]</div>
           <h2 className="mt-1 text-sm font-black uppercase text-[#f8f1d0]">Repository Onboarding</h2>
-          <p className="mt-1 text-xs text-[#9b9b89]">Clone from GitHub or link a repo that already exists on this machine.</p>
+          <p className="mt-1 text-xs text-[#9b9b89]">
+            {githubRepos.length} synced GitHub repos available. {managedRepos.length} repos are already managed.
+          </p>
         </div>
         {message ? <span className="rounded border border-[#ffca58]/35 bg-[#ffca58]/10 px-2 py-1 text-xs text-[#ffe1a0]">{message}</span> : null}
       </div>

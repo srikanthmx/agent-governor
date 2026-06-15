@@ -249,31 +249,15 @@ function RepoStep({ repos, githubRepos }: { repos: Repo[]; githubRepos: GithubRe
 
   return (
     <div className="space-y-5">
-      {/* Current repos */}
-      {repos.length > 0 && (
-        <div className="ag-card p-5">
-          <div className="ag-section-label mb-3">Managed Repositories</div>
-          <div className="space-y-1.5">
-            {repos.map((r) => (
-              <div key={r.id} className="flex items-center justify-between p-3 rounded-lg bg-[var(--ag-bg)] border border-[var(--ag-border)]">
-                <div>
-                  <div className="text-[13px] font-medium text-[var(--ag-text-1)]">{r.name}</div>
-                  <div className="text-[11px] text-[var(--ag-text-4)]">{r.github}</div>
-                </div>
-                <span className="ag-badge ag-badge-success">Active</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {message && <div className={`ag-message ${message.ok ? "ag-message-success" : "ag-message-error"}`}>{message.text}</div>}
 
       {/* Clone from GitHub */}
       <div className="ag-card p-5">
-        <h3 className="text-[15px] font-semibold text-[var(--ag-text-1)]">Clone from GitHub</h3>
+        <h3 className="text-[15px] font-semibold text-[var(--ag-text-1)]">
+          Available GitHub Repositories{githubRepos.length > 0 ? ` (${githubRepos.length} synced)` : ""}
+        </h3>
         <p className="text-[12px] text-[var(--ag-text-4)] mt-1">
-          {githubRepos.length > 0 ? `${githubRepos.length} repos synced.` : "Sync your GitHub repos first (Step 1)."}
+          {githubRepos.length > 0 ? `${filtered.length} matching repos shown.` : "Sync your GitHub repos first (Step 1)."}
         </p>
         {githubRepos.length > 0 && (
           <>
@@ -302,6 +286,25 @@ function RepoStep({ repos, githubRepos }: { repos: Repo[]; githubRepos: GithubRe
           </>
         )}
       </div>
+
+      {/* Current repos */}
+      {repos.length > 0 && (
+        <div className="ag-card p-5">
+          <div className="ag-section-label mb-1">Linked Repositories ({repos.length} managed)</div>
+          <p className="mb-3 text-[12px] text-[var(--ag-text-4)]">These repos are already connected to Governor. They are separate from the synced GitHub list above.</p>
+          <div className="space-y-1.5">
+            {repos.map((r) => (
+              <div key={r.id} className="flex items-center justify-between p-3 rounded-lg bg-[var(--ag-bg)] border border-[var(--ag-border)]">
+                <div>
+                  <div className="text-[13px] font-medium text-[var(--ag-text-1)]">{r.name}</div>
+                  <div className="text-[11px] text-[var(--ag-text-4)]">{r.github}</div>
+                </div>
+                <span className="ag-badge ag-badge-success">Managed</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Link local */}
       <div className="ag-card p-5">

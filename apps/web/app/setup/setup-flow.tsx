@@ -309,30 +309,14 @@ function RepoStep({ repos, githubRepos }: { repos: Repo[]; githubRepos: GithubRe
 
   return (
     <div className="space-y-5">
-      {/* Managed repos */}
-      {repos.length > 0 && (
-        <div className="ag-card p-5">
-          <h2 className="text-base font-semibold text-[var(--ag-heading)]">Managed Repositories</h2>
-          <div className="mt-3 space-y-2">
-            {repos.map((r) => (
-              <div key={r.id} className="flex items-center justify-between rounded-lg bg-[var(--ag-surface)] border border-[var(--ag-line)] px-4 py-3">
-                <div>
-                  <div className="text-sm font-medium text-[var(--ag-heading)]">{r.name}</div>
-                  <div className="text-xs text-[var(--ag-muted)]">{r.github}</div>
-                </div>
-                <span className="ag-badge ag-badge-success">Active</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Clone from GitHub */}
       <div className="ag-card p-5">
-        <h2 className="text-base font-semibold text-[var(--ag-heading)]">Clone from GitHub</h2>
+        <h2 className="text-base font-semibold text-[var(--ag-heading)]">
+          Available GitHub Repositories{githubRepos.length > 0 ? ` (${githubRepos.length} synced)` : ""}
+        </h2>
         <p className="mt-1 text-xs text-[var(--ag-muted)]">
           {githubRepos.length > 0
-            ? `${githubRepos.length} repos synced. Select one to clone and govern.`
+            ? `${filtered.length} matching repos shown. Select one to clone and govern.`
             : "No repos synced yet. Go to the GitHub step to sync your repos first."}
         </p>
 
@@ -373,6 +357,25 @@ function RepoStep({ repos, githubRepos }: { repos: Repo[]; githubRepos: GithubRe
           </>
         )}
       </div>
+
+      {/* Managed repos */}
+      {repos.length > 0 && (
+        <div className="ag-card p-5">
+          <h2 className="text-base font-semibold text-[var(--ag-heading)]">Linked Repositories ({repos.length} managed)</h2>
+          <p className="mt-1 text-xs text-[var(--ag-muted)]">These repos are already connected to Governor. They are separate from the synced GitHub repository list above.</p>
+          <div className="mt-3 space-y-2">
+            {repos.map((r) => (
+              <div key={r.id} className="flex items-center justify-between rounded-lg bg-[var(--ag-surface)] border border-[var(--ag-line)] px-4 py-3">
+                <div>
+                  <div className="text-sm font-medium text-[var(--ag-heading)]">{r.name}</div>
+                  <div className="text-xs text-[var(--ag-muted)]">{r.github}</div>
+                </div>
+                <span className="ag-badge ag-badge-success">Managed</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Link local repo */}
       <div className="ag-card p-5">
