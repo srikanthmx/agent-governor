@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createGithubState, githubAuthorizeUrl, githubOAuthConfigured, githubRedirectUri } from "../_oauth";
+import { clearStoredGitHubAuth, createGithubState, githubAuthorizeUrl, githubOAuthConfigured, githubRedirectUri } from "../_oauth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,4 +56,17 @@ export async function GET(request: Request) {
     return NextResponse.json(githubOAuthSetupPayload(request));
   }
   return githubOAuthResponse(request, false);
+}
+
+export async function DELETE() {
+  const removed = clearStoredGitHubAuth();
+  const response = NextResponse.json({
+    ok: true,
+    disconnected: true,
+    removed,
+    authenticated: false,
+    message: removed ? "GitHub browser SSO token removed." : "No GitHub browser SSO token was stored."
+  });
+  response.cookies.delete("ag_github_oauth_state");
+  return response;
 }

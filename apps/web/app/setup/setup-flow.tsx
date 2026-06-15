@@ -160,6 +160,14 @@ function GitHubStep() {
     } finally { setBusy(false); }
   }
 
+  async function disconnectGitHub() {
+    setBusy(true);
+    try {
+      await fetch("/api/github/auth", { method: "DELETE" });
+      await checkStatus();
+    } finally { setBusy(false); }
+  }
+
   useEffect(() => { checkStatus(); }, []);
 
   return (
@@ -200,14 +208,17 @@ function GitHubStep() {
       )}
 
       {auth.authenticated && (
-        <div className="flex items-center justify-between gap-3 rounded-lg bg-[var(--ag-surface)] border border-[var(--ag-line)] p-4">
+        <div className="flex flex-col gap-4 rounded-lg bg-[var(--ag-surface)] border border-[var(--ag-line)] p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="text-sm font-medium text-[var(--ag-heading)]">Sync repositories</div>
             <p className="text-xs text-[var(--ag-muted)]">Pull your GitHub repos into Governor so the next step can clone one.</p>
           </div>
-          <button className="ag-btn ag-btn-primary" disabled={busy} onClick={syncRepos}>
-            {busy ? "Syncing..." : "Sync"}
-          </button>
+          <div className="flex gap-2">
+            <button className="ag-btn ag-btn-secondary" disabled={busy} onClick={disconnectGitHub}>Disconnect</button>
+            <button className="ag-btn ag-btn-primary" disabled={busy} onClick={syncRepos}>
+              {busy ? "Syncing..." : "Sync"}
+            </button>
+          </div>
         </div>
       )}
 

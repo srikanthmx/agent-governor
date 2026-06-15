@@ -1,5 +1,5 @@
 import { projectRoot } from "@agent-governor/config";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 
@@ -77,6 +77,15 @@ export function writeStoredGitHubAuth(auth: StoredGitHubAuth) {
   const path = githubAuthPath();
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, JSON.stringify(auth, null, 2));
+}
+
+export function clearStoredGitHubAuth() {
+  const path = githubAuthPath();
+  if (existsSync(path)) {
+    rmSync(path);
+    return true;
+  }
+  return false;
 }
 
 export async function exchangeGithubCode(input: { code: string; redirectUri: string }) {

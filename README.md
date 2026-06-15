@@ -408,7 +408,7 @@ For hosted deployments, use a hosted callback URL:
 https://your-governor-web-url/api/github/callback
 ```
 
-Then use First Run -> GitHub -> Sign in with GitHub in browser. The web token is stored locally under `data/github-auth.json`, which is ignored by Git.
+Then use First Run -> GitHub -> Sign in with GitHub in browser. The web token is stored locally under `data/github-auth.json`, which is ignored by Git. To disconnect this app from GitHub, use First Run -> GitHub -> Disconnect or Settings -> GitHub -> Disconnect. This removes the local token; revoke the OAuth app in GitHub settings if you also want to invalidate the grant on GitHub.
 
 The GitHub CLI is still required for PR create/merge fallback:
 

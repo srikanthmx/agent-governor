@@ -88,6 +88,19 @@ export function GitHubAuthPanel() {
     }
   }
 
+  async function disconnectGitHub() {
+    setBusy(true);
+    setSyncResult("");
+    try {
+      const response = await fetch("/api/github/auth", { method: "DELETE" });
+      const result = await readJsonResponse(response);
+      setSyncResult(result.message ?? "GitHub disconnected.");
+      await checkStatus();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   useEffect(() => {
     checkStatus();
   }, []);
@@ -106,6 +119,9 @@ export function GitHubAuthPanel() {
           </div>
           <div className="flex gap-2">
             <button className="h-9 rounded-md border border-zinc-700 px-3 text-sm" disabled={busy} onClick={checkStatus}>Check</button>
+            {auth.authenticated ? (
+              <button className="h-9 rounded-md border border-zinc-700 px-3 text-sm" disabled={busy} onClick={disconnectGitHub}>Disconnect</button>
+            ) : null}
             <button className="h-9 rounded-md bg-zinc-100 px-3 text-sm text-zinc-950" disabled={busy || auth.setupRequired} onClick={startLogin}>Sign in with GitHub</button>
           </div>
         </div>
