@@ -79,7 +79,7 @@ export function GitHubAuthPanel() {
       const response = await fetch("/api/github/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ limit: 100 })
+        body: JSON.stringify({})
       });
       const result = await readJsonResponse(response);
       setSyncResult(result.ok ? `Synced ${result.count} repositories` : result.error ?? "Sync failed");

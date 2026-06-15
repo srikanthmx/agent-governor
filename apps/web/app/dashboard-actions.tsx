@@ -53,7 +53,7 @@ export function RepoWorkbench({ githubRepos, managedRepos }: { githubRepos: Gith
   const [localBranch, setLocalBranch] = useState("main");
 
   const managedGithubNames = useMemo(() => new Set(managedRepos.map((repo) => repo.github)), [managedRepos]);
-  const filtered = githubRepos.filter((repo) => repo.nameWithOwner.toLowerCase().includes(query.toLowerCase())).slice(0, 12);
+  const filtered = githubRepos.filter((repo) => repo.nameWithOwner.toLowerCase().includes(query.toLowerCase()));
 
   async function cloneRepo(repo: GithubRepo) {
     setBusyRepo(repo.nameWithOwner);

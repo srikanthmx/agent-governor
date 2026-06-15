@@ -251,7 +251,7 @@ export class WorkflowEngine {
   }
 
   async syncGithubRepos(input?: { owner?: string; limit?: number }) {
-    const owner = input?.owner ?? this.input.config.app.github.owner;
+    const owner = input?.owner;
     const repos = await new GhCliManager().listRepos({ owner, limit: input?.limit });
     this.repos.upsertGithubRepos(repos);
     audit(this.input.db, {

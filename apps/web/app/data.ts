@@ -178,7 +178,6 @@ export function getDashboardData(): DashboardData {
              updated_at AS updatedAt
       FROM github_repos
       ORDER BY updated_at DESC, name_with_owner ASC
-      LIMIT 100
     `).all() as DashboardData["githubRepos"];
 
     const localTools = detectLocalTools(config.agents);

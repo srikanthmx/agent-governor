@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Repo = { id: number; name: string; github: string };
 type GithubRepo = { id: number; nameWithOwner: string; description: string; visibility: string; defaultBranch: string; url: string };
@@ -117,6 +117,7 @@ function GitHubStep() {
   const [auth, setAuth] = useState<AuthState>({});
   const [syncResult, setSyncResult] = useState("");
   const [busy, setBusy] = useState(false);
+  const autoSynced = useRef(false);
 
   async function checkStatus() {
     const res = await fetch("/api/github/status", { cache: "no-store" });
@@ -153,7 +154,7 @@ function GitHubStep() {
   async function syncRepos() {
     setBusy(true);
     try {
-      const res = await fetch("/api/github/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ limit: 100 }) });
+      const res = await fetch("/api/github/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
       const result = await readJson(res);
       setSyncResult(result.ok ? `Synced ${result.count} repositories` : result.error ?? "Sync failed");
       if (result.ok) setTimeout(() => window.location.reload(), 800);
@@ -168,7 +169,18 @@ function GitHubStep() {
     } finally { setBusy(false); }
   }
 
-  useEffect(() => { checkStatus(); }, []);
+  useEffect(() => {
+    async function initialize() {
+      await checkStatus();
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("github") === "connected" && !autoSynced.current) {
+        autoSynced.current = true;
+        window.history.replaceState(null, "", window.location.pathname);
+        await syncRepos();
+      }
+    }
+    initialize();
+  }, []);
 
   return (
     <div className="ag-card p-6 space-y-5">
@@ -263,7 +275,7 @@ function RepoStep({ repos, githubRepos }: { repos: Repo[]; githubRepos: GithubRe
   const [localBranch, setLocalBranch] = useState("main");
 
   const managedNames = useMemo(() => new Set(repos.map((r) => r.github)), [repos]);
-  const filtered = githubRepos.filter((r) => r.nameWithOwner.toLowerCase().includes(query.toLowerCase())).slice(0, 10);
+  const filtered = githubRepos.filter((r) => r.nameWithOwner.toLowerCase().includes(query.toLowerCase()));
 
   async function cloneRepo(repo: GithubRepo) {
     setBusyRepo(repo.nameWithOwner);

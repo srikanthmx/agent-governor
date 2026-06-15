@@ -8,14 +8,15 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const body = await request.json().catch(() => ({})) as { owner?: string; limit?: number };
+  const body = await request.json().catch(() => ({})) as { owner?: string; limit?: number | null };
+  const limit = typeof body.limit === "number" && Number.isFinite(body.limit) && body.limit > 0 ? body.limit : undefined;
   const stored = readStoredGitHubAuth();
   if (stored) {
     try {
       const repos = await listReposViaToken({
         accessToken: stored.accessToken,
         owner: body.owner,
-        limit: body.limit ?? 100
+        limit
       });
       upsertGithubRepos(repos);
       return NextResponse.json({
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const args = ["agent", "sync-github-repos", "--limit", String(body.limit ?? 100)];
+  const args = ["agent", "sync-github-repos", "--limit", String(limit ?? 1000)];
   if (body.owner) {
     args.push("--owner", body.owner);
   }
@@ -68,15 +69,15 @@ type GithubApiRepo = {
   updated_at: string;
 };
 
-async function listReposViaToken(input: { accessToken: string; owner?: string; limit: number }) {
+async function listReposViaToken(input: { accessToken: string; owner?: string; limit?: number }) {
   const repos: GithubApiRepo[] = [];
   let page = 1;
-  while (repos.length < input.limit) {
+  while (!input.limit || repos.length < input.limit) {
     const url = new URL("https://api.github.com/user/repos");
     url.searchParams.set("affiliation", "owner,collaborator,organization_member");
     url.searchParams.set("visibility", "all");
     url.searchParams.set("sort", "updated");
-    url.searchParams.set("per_page", String(Math.min(100, input.limit - repos.length)));
+    url.searchParams.set("per_page", String(input.limit ? Math.min(100, input.limit - repos.length) : 100));
     url.searchParams.set("page", String(page));
     const response = await fetch(url, {
       headers: githubApiHeaders(input.accessToken),
@@ -92,7 +93,7 @@ async function listReposViaToken(input: { accessToken: string; owner?: string; l
     page += 1;
   }
 
-  return repos.slice(0, input.limit).map((repo) => ({
+  return (input.limit ? repos.slice(0, input.limit) : repos).map((repo) => ({
     name: repo.name,
     nameWithOwner: repo.full_name,
     owner: repo.owner.login,

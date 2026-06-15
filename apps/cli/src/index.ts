@@ -79,8 +79,8 @@ program.command("list-tasks").description("List tasks").action(() => {
 program
   .command("sync-github-repos")
   .description("Pull GitHub repositories through gh and cache them locally")
-  .option("--owner <owner>", "GitHub owner/org; defaults to app config or authenticated viewer")
-  .option("--limit <limit>", "Maximum repositories", "100")
+  .option("--owner <owner>", "GitHub owner/org; omit to sync repositories visible to the authenticated viewer")
+  .option("--limit <limit>", "Maximum repositories", "1000")
   .action(async (options) => {
     const { config, db } = dbForCwd();
     const repos = await new WorkflowEngine({ db, config }).syncGithubRepos({

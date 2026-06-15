@@ -118,7 +118,7 @@ function GitHubStep() {
       const result = await api("/api/github/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ limit: 100 }),
+        body: JSON.stringify({}),
       });
       setSyncMsg(result.ok ? `Synced ${result.count} repositories` : result.error ?? "Failed");
       if (result.ok) setTimeout(() => window.location.reload(), 800);
@@ -217,7 +217,7 @@ function RepoStep({ repos, githubRepos }: { repos: Repo[]; githubRepos: GithubRe
   const [localBranch, setLocalBranch] = useState("main");
 
   const managed = useMemo(() => new Set(repos.map((r) => r.github)), [repos]);
-  const filtered = githubRepos.filter((r) => r.nameWithOwner.toLowerCase().includes(query.toLowerCase())).slice(0, 12);
+  const filtered = githubRepos.filter((r) => r.nameWithOwner.toLowerCase().includes(query.toLowerCase()));
 
   async function cloneRepo(repo: GithubRepo) {
     setBusyRepo(repo.nameWithOwner);
