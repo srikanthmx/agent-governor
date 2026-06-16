@@ -152,10 +152,13 @@ function GitHubStep() {
     try {
       const res = await fetch("/api/github/terminal-login", { method: "POST" });
       const result = await readJson(res);
+      const connected = Boolean(auth.authenticated);
       setTerminalResult({
         ok: Boolean(result.ok),
         message: result.ok
-          ? "Terminal opened. Complete the GitHub browser login there, then return here and click Check again."
+          ? connected
+            ? "Terminal opened. It will verify GitHub auth and sync repos. Return here after it finishes and refresh if counts do not update."
+            : "Terminal opened. Complete the GitHub browser login there, then return here and click Check again."
           : result.error ?? "Could not open Terminal automatically.",
         command: result.command
       });
@@ -260,10 +263,24 @@ function GitHubStep() {
           </div>
           <div className="flex gap-2">
             <button className="ag-btn ag-btn-secondary" disabled={busy} onClick={disconnectGitHub}>Disconnect</button>
+            <button className="ag-btn ag-btn-secondary" disabled={busy} onClick={startTerminalLogin}>Open Terminal auth/sync</button>
             <button className="ag-btn ag-btn-primary" disabled={busy} onClick={syncRepos}>
               {busy ? "Syncing..." : "Sync"}
             </button>
           </div>
+        </div>
+      )}
+
+      {auth.authenticated && terminalResult && (
+        <div className={`rounded-lg border px-4 py-3 text-sm ${
+          terminalResult.ok
+            ? "border-[color-mix(in_srgb,var(--ag-green)_35%,var(--ag-line))] bg-[color-mix(in_srgb,var(--ag-green)_8%,var(--ag-surface))] text-[var(--ag-heading)]"
+            : "border-[color-mix(in_srgb,var(--ag-coral)_35%,var(--ag-line))] bg-[color-mix(in_srgb,var(--ag-coral)_8%,var(--ag-surface))] text-[var(--ag-heading)]"
+        }`}>
+          <div>{terminalResult.message}</div>
+          {!terminalResult.ok && terminalResult.command && (
+            <code className="mt-2 block overflow-x-auto rounded bg-[var(--ag-bg)] px-2 py-1 font-mono text-xs text-[var(--ag-muted)]">{terminalResult.command}</code>
+          )}
         </div>
       )}
 

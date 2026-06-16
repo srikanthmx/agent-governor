@@ -114,8 +114,11 @@ function GitHubStep() {
     setTerminalMsg("");
     try {
       const result = await api("/api/github/terminal-login", { method: "POST" });
+      const connected = Boolean(auth.authenticated);
       setTerminalMsg(result.ok
-        ? "Terminal opened. Complete the GitHub browser login there, then return here and click Recheck."
+        ? connected
+          ? "Terminal opened. It will verify GitHub auth and sync repos. Return here after it finishes and refresh if counts do not update."
+          : "Terminal opened. Complete the GitHub browser login there, then return here and click Recheck."
         : result.error ?? "Could not open Terminal automatically.");
     } finally { setBusy(false); }
   }
@@ -206,6 +209,7 @@ function GitHubStep() {
           </div>
           <div className="flex gap-2">
             <button className="ag-btn ag-btn-ghost" disabled={busy} onClick={disconnectGitHub}>Disconnect</button>
+            <button className="ag-btn ag-btn-ghost" disabled={busy} onClick={startTerminalLogin}>Open Terminal auth/sync</button>
             <button className="ag-btn ag-btn-primary" disabled={busy} onClick={syncRepos}>
               {busy ? "Syncing..." : "Sync"}
             </button>
@@ -213,6 +217,7 @@ function GitHubStep() {
         </div>
       )}
 
+      {auth.authenticated && terminalMsg && <div className="ag-message ag-message-success">{terminalMsg}</div>}
       {syncMsg && <div className="ag-message ag-message-success">{syncMsg}</div>}
     </div>
   );

@@ -1,4 +1,5 @@
 import { projectRoot } from "@agent-governor/config";
+import { spawn } from "node:child_process";
 import { execa } from "execa";
 import { NextResponse } from "next/server";
 
@@ -30,6 +31,12 @@ function terminalCommand() {
 
 export async function POST() {
   const command = terminalCommand();
+  const appleScript = [
+    "tell application \"Terminal\"",
+    "activate",
+    `do script ${JSON.stringify(command)}`,
+    "end tell"
+  ].join("\n");
 
   if (process.platform !== "darwin") {
     return NextResponse.json({
@@ -39,20 +46,28 @@ export async function POST() {
     }, { status: 400 });
   }
 
-  const appleScript = [
-    "tell application \"Terminal\"",
-    "activate",
-    `do script ${JSON.stringify(command)}`,
-    "end tell"
-  ].join("\n");
+  const preflight = await execa("osascript", ["-e", "tell application \"Terminal\" to id"], { reject: false });
+  if (preflight.exitCode !== 0) {
+    const output = [preflight.stdout, preflight.stderr].filter(Boolean).join("\n");
+    return NextResponse.json({
+      ok: false,
+      command,
+      output,
+      error: output || "Terminal is not available for automation."
+    }, { status: 500 });
+  }
 
-  const result = await execa("osascript", ["-e", appleScript], { reject: false });
-  const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
+  const child = spawn("osascript", ["-e", appleScript], {
+    detached: true,
+    stdio: "ignore"
+  });
+  child.unref();
 
   return NextResponse.json({
-    ok: result.exitCode === 0,
+    ok: true,
+    launched: true,
+    pid: child.pid,
     command,
-    output,
-    error: result.exitCode === 0 ? undefined : output || `Terminal launch exited with ${result.exitCode}`
-  }, { status: result.exitCode === 0 ? 200 : 500 });
+    message: "Terminal launch requested. Complete GitHub auth in the Terminal window, then return to Governor and check status."
+  }, { status: 202 });
 }
