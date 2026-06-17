@@ -1,8 +1,27 @@
+import { spawn } from "node:child_process";
+import { execa } from "execa";
 import { NextResponse } from "next/server";
 import { clearStoredGitHubAuth, createGithubState, githubAuthorizeUrl, githubOAuthConfigured, githubRedirectUri } from "../_oauth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+let activeLogin:
+  | {
+      child: ReturnType<typeof spawn>;
+      output: string;
+      startedAt: number;
+      done: boolean;
+      error?: string;
+    }
+  | undefined;
+
+function parseLoginOutput(output: string): { code?: string; url?: string } {
+  return {
+    code: output.match(/one-time code:\s*([A-Z0-9-]+)/i)?.[1],
+    url: output.match(/https:\/\/github\.com\/login\/device/)?.[0]
+  };
+}
 
 function githubOAuthSetupPayload(request: Request) {
   const callbackUrl = githubRedirectUri(request);
@@ -12,7 +31,7 @@ function githubOAuthSetupPayload(request: Request) {
     oauthConfigured: false,
     setupRequired: true,
     callbackUrl,
-    error: "GitHub browser SSO is not configured yet. Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET, then restart the app.",
+    error: "Optional GitHub OAuth App mode is not configured. For local desktop auth, install GitHub CLI and use browser sign-in.",
     setup: {
       title: "Create a GitHub OAuth App for browser SSO",
       callbackUrl,
@@ -44,18 +63,130 @@ function githubOAuthResponse(request: Request, pending: boolean) {
   return response;
 }
 
-export async function POST(request: Request) {
-  if (!githubOAuthConfigured()) {
-    return NextResponse.json(githubOAuthSetupPayload(request));
+async function ghAuthStatus() {
+  const result = await execa("gh", ["auth", "status", "--hostname", "github.com"], { reject: false });
+  return {
+    authenticated: result.exitCode === 0,
+    output: [result.stdout, result.stderr].filter(Boolean).join("\n")
+  };
+}
+
+function activeLoginResponse() {
+  if (!activeLogin) {
+    return NextResponse.json({ pending: false, web: true, provider: "gh-cli" });
   }
-  return githubOAuthResponse(request, true);
+
+  const parsed = parseLoginOutput(activeLogin.output);
+  return NextResponse.json({
+    ...parsed,
+    pending: !activeLogin.done,
+    done: activeLogin.done,
+    web: true,
+    provider: "gh-cli",
+    error: activeLogin.error,
+    output: activeLogin.output
+  });
+}
+
+export async function POST(request: Request) {
+  if (githubOAuthConfigured()) {
+    return githubOAuthResponse(request, true);
+  }
+
+  try {
+    const status = await ghAuthStatus();
+    if (status.authenticated) {
+      return NextResponse.json({
+        authenticated: true,
+        pending: false,
+        web: true,
+        provider: "gh-cli",
+        output: status.output,
+        message: "GitHub is already authenticated for HTTPS git operations on this machine."
+      });
+    }
+  } catch {
+    return NextResponse.json({
+      ok: false,
+      pending: false,
+      web: true,
+      provider: "gh-cli",
+      error: "GitHub CLI is not installed. Install gh before using local browser authentication."
+    }, { status: 400 });
+  }
+
+  if (activeLogin && !activeLogin.done && Date.now() - activeLogin.startedAt < 10 * 60 * 1000) {
+    return activeLoginResponse();
+  }
+
+  const child = spawn("gh", ["auth", "login", "--hostname", "github.com", "--git-protocol", "https", "--web"], {
+    env: process.env,
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  activeLogin = { child, output: "", startedAt: Date.now(), done: false };
+
+  child.stdout.on("data", (chunk: Buffer) => {
+    if (activeLogin?.child === child) activeLogin.output += chunk.toString("utf8");
+  });
+  child.stderr.on("data", (chunk: Buffer) => {
+    if (activeLogin?.child === child) activeLogin.output += chunk.toString("utf8");
+  });
+  child.on("close", (code) => {
+    if (activeLogin?.child === child) {
+      activeLogin.done = true;
+      if (code !== 0) activeLogin.error = `GitHub browser login exited with ${code}`;
+    }
+  });
+
+  const deadline = Date.now() + 3000;
+  while (Date.now() < deadline) {
+    const parsed = parseLoginOutput(activeLogin.output);
+    if (parsed.code || parsed.url) {
+      return NextResponse.json({ ...parsed, pending: true, web: true, provider: "gh-cli", output: activeLogin.output });
+    }
+    if (activeLogin.done) break;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  return NextResponse.json({ pending: true, web: true, provider: "gh-cli", output: activeLogin.output });
 }
 
 export async function GET(request: Request) {
-  if (!githubOAuthConfigured()) {
-    return NextResponse.json(githubOAuthSetupPayload(request));
+  if (githubOAuthConfigured()) {
+    return githubOAuthResponse(request, false);
   }
-  return githubOAuthResponse(request, false);
+
+  if (activeLogin) return activeLoginResponse();
+
+  try {
+    const status = await ghAuthStatus();
+    if (status.authenticated) {
+      return NextResponse.json({
+        authenticated: true,
+        pending: false,
+        web: true,
+        provider: "gh-cli",
+        output: status.output
+      });
+    }
+  } catch {
+    return NextResponse.json({
+      pending: false,
+      web: true,
+      provider: "gh-cli",
+      setupRequired: false,
+      error: "GitHub CLI is not installed. Install gh to use local GitHub browser authentication."
+    });
+  }
+
+  return NextResponse.json({
+    pending: false,
+    web: true,
+    provider: "gh-cli",
+    setupRequired: false,
+    message: "Use the button to open GitHub browser authentication."
+  });
 }
 
 export async function DELETE() {

@@ -104,6 +104,7 @@ function GitHubStep() {
         return;
       }
       setAuth(result);
+      if (result.authenticated) await syncRepos();
     }
     finally { setBusy(false); }
   }
@@ -170,6 +171,7 @@ function GitHubStep() {
             </button>
             <button className="ag-btn ag-btn-ghost" disabled={busy} onClick={checkStatus}>Recheck</button>
           </div>
+          {auth.error && !auth.setupRequired && <div className="ag-message ag-message-error">{auth.error}</div>}
         </>
       )}
 

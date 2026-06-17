@@ -80,10 +80,10 @@ Required:
 - Node.js 20+
 - pnpm 9+
 - git
+- GitHub CLI (`gh`) for local browser sign-in and PR create/merge fallback
 
 Recommended:
 
-- GitHub CLI (`gh`) for PR create/merge fallback
 - Codex CLI, Gemini CLI, Claude Code, Ollama, Aider, or other local runtimes you want Governor to route to
 - tmux optional
 
@@ -93,6 +93,7 @@ Check the basics:
 node --version
 pnpm --version
 git --version
+gh --version
 ```
 
 ### 2. Install Workspace Dependencies
@@ -115,29 +116,17 @@ GITHUB_DEFAULT_BRANCH=main
 GITHUB_OWNER=your-github-user-or-org
 ```
 
-### 4. Configure GitHub Web SSO
+### 4. Authenticate GitHub
 
-Create a GitHub OAuth App before the first web run if you want the in-app browser OAuth flow:
+For local desktop use, do not create a GitHub OAuth App. First Run -> GitHub -> Sign in with GitHub in browser uses GitHub CLI's browser flow:
 
-```text
-GitHub -> Settings -> Developer settings -> OAuth Apps -> New OAuth App
+```bash
+gh auth login --hostname github.com --git-protocol https --web
 ```
 
-Use the callback URL shown on the first-run GitHub step. For local web development the default is:
+The app opens that flow from the button, checks `gh auth status`, and then syncs repositories from the authenticated account.
 
-```text
-Homepage URL: http://localhost:3000
-Authorization callback URL: http://localhost:3000/api/github/callback
-```
-
-For the desktop app, the local UI normally runs on `http://127.0.0.1:3002`, so the first-run page may show:
-
-```text
-Homepage URL: http://127.0.0.1:3002
-Authorization callback URL: http://127.0.0.1:3002/api/github/callback
-```
-
-Then add the app credentials to `.env`:
+Optional hosted/control-plane deployments can use a GitHub OAuth App instead. In that case, set:
 
 ```bash
 GITHUB_CLIENT_ID=...
@@ -146,15 +135,6 @@ GITHUB_OAUTH_SCOPES="repo read:user user:email read:org"
 ```
 
 `GITHUB_OAUTH_REDIRECT_URI` is optional locally. Leave it unset if you want the app to use the current browser origin, or set it only when you need a fixed hosted callback URL.
-
-Then use First Run -> GitHub -> Sign in with GitHub in browser. GitHub opens in the browser, the callback stores a local web token, and Governor syncs repositories from that token.
-
-The GitHub CLI is not part of first-run authentication. It is only needed for PR create/merge fallback until those operations are fully token-backed:
-
-
-```bash
-gh auth login
-```
 
 ### 5. Initialize And Check Governor
 
@@ -403,21 +383,15 @@ Implemented skeleton commands include `/repos`, `/selectrepo`, `/idea`, `/tasks`
 
 ## GitHub Setup
 
-Browser SSO is the primary web flow. Configure the OAuth app and `.env` before opening the app, as described in [Before Opening The App](#before-opening-the-app).
+Local browser sign-in is the primary desktop flow. Install GitHub CLI, then use First Run -> GitHub -> Sign in with GitHub in browser. The app launches GitHub's browser auth through `gh`, stores credentials in the OS keychain through GitHub CLI, and syncs repositories from that authenticated account.
 
-For hosted deployments, use a hosted callback URL:
+Hosted/control-plane deployments can use a GitHub OAuth App instead. For hosted deployments, use a hosted callback URL:
 
 ```text
 https://your-governor-web-url/api/github/callback
 ```
 
-Then use First Run -> GitHub -> Sign in with GitHub in browser. The web token is stored locally under `data/github-auth.json`, which is ignored by Git. To disconnect this app from GitHub, use First Run -> GitHub -> Disconnect or Settings -> GitHub -> Disconnect. This removes the local token; revoke the OAuth app in GitHub settings if you also want to invalidate the grant on GitHub.
-
-The GitHub CLI is still required for PR create/merge fallback:
-
-```bash
-gh auth login
-```
+When OAuth App mode is used, the web token is stored locally under `data/github-auth.json`, which is ignored by Git. To disconnect that token, use First Run -> GitHub -> Disconnect or Settings -> GitHub -> Disconnect. This removes the local token; revoke the OAuth app in GitHub settings if you also want to invalidate the grant on GitHub.
 
 The MVP GitHub manager wraps:
 - `gh repo create`

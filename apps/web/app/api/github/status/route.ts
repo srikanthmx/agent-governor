@@ -1,3 +1,4 @@
+import { execa } from "execa";
 import { NextResponse } from "next/server";
 import { githubOAuthConfigured, readGithubUser, readStoredGitHubAuth } from "../_oauth";
 
@@ -28,12 +29,23 @@ export async function GET() {
     }
   }
 
-  return NextResponse.json({
-    authenticated: false,
-    provider: "github-oauth",
-    webConfigured: githubOAuthConfigured(),
-    output: githubOAuthConfigured()
-      ? "Use GitHub browser sign-in to authenticate."
-      : "GitHub browser SSO is not configured."
-  });
+  try {
+    const result = await execa("gh", ["auth", "status", "--hostname", "github.com"], { reject: false });
+    return NextResponse.json({
+      authenticated: result.exitCode === 0,
+      provider: result.exitCode === 0 ? "gh-cli" : githubOAuthConfigured() ? "github-oauth" : "gh-cli",
+      webConfigured: githubOAuthConfigured(),
+      output: [result.stdout, result.stderr].filter(Boolean).join("\n")
+    });
+  } catch (error) {
+    return NextResponse.json({
+      authenticated: false,
+      provider: githubOAuthConfigured() ? "github-oauth" : "gh-cli",
+      webConfigured: githubOAuthConfigured(),
+      error: error instanceof Error ? error.message : "GitHub CLI is unavailable",
+      output: githubOAuthConfigured()
+        ? "Use GitHub browser sign-in to authenticate."
+        : "Install GitHub CLI to use local browser authentication."
+    });
+  }
 }

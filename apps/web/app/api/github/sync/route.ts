@@ -1,5 +1,6 @@
 import { loadConfig, projectRoot } from "@agent-governor/config";
 import { migrate, openDb, RepoRegistry } from "@agent-governor/db";
+import { execa } from "execa";
 import { NextResponse } from "next/server";
 import { githubApiHeaders, readStoredGitHubAuth } from "../_oauth";
 
@@ -34,12 +35,28 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({
-    ok: false,
-    provider: "github-oauth",
-    count: 0,
-    error: "Sign in with GitHub in the browser before syncing repositories."
-  }, { status: 401 });
+  const args = ["agent", "sync-github-repos", "--limit", String(limit ?? 1000)];
+  if (body.owner) {
+    args.push("--owner", body.owner);
+  }
+
+  const result = await execa("pnpm", args, {
+    cwd: projectRoot(process.cwd()),
+    reject: false
+  });
+  const output = [result.stdout, result.stderr].filter((value): value is string => Boolean(value)).join("\n");
+  const count = output.match(/Synced\s+(\d+)\s+GitHub repos/i)?.[1];
+
+  return NextResponse.json(
+    {
+      ok: result.exitCode === 0,
+      provider: "gh-cli",
+      count: count ? Number(count) : 0,
+      output,
+      error: result.exitCode === 0 ? undefined : output || `sync exited with ${result.exitCode}`
+    },
+    { status: result.exitCode === 0 ? 200 : 500 }
+  );
 }
 
 type GithubApiRepo = {

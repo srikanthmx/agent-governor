@@ -141,6 +141,7 @@ function GitHubStep() {
         return;
       }
       setAuth(result);
+      if (result.authenticated) await syncRepos();
     } finally { setBusy(false); }
   }
 
@@ -205,6 +206,11 @@ function GitHubStep() {
             </button>
             <button className="ag-btn ag-btn-secondary" disabled={busy} onClick={checkStatus}>Check again</button>
           </div>
+          {auth.error && !auth.setupRequired && (
+            <div className="rounded-lg border border-[color-mix(in_srgb,var(--ag-coral)_35%,var(--ag-line))] bg-[color-mix(in_srgb,var(--ag-coral)_8%,var(--ag-surface))] px-4 py-3 text-sm text-[var(--ag-heading)]">
+              {auth.error}
+            </div>
+          )}
         </>
       )}
 
