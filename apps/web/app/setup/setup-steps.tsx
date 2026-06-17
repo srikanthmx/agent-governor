@@ -97,16 +97,29 @@ function GitHubStep() {
   }
   async function startLogin() {
     setBusy(true);
+    const loginWindow = window.open("", "_blank");
+    let openedLoginUrl = false;
     try {
       const result = await api("/api/github/auth", { method: "POST" });
-      if (result.authUrl) {
-        window.location.href = result.authUrl;
+      const url = result.authUrl ?? result.url;
+      if (url) {
+        openedLoginUrl = true;
+        if (loginWindow) {
+          loginWindow.location.href = url;
+        } else {
+          window.location.href = url;
+        }
+        setAuth(result);
         return;
       }
+      loginWindow?.close();
       setAuth(result);
       if (result.authenticated) await syncRepos();
     }
-    finally { setBusy(false); }
+    finally {
+      if (!openedLoginUrl) loginWindow?.close();
+      setBusy(false);
+    }
   }
   async function refreshLogin() {
     const result = await api("/api/github/auth");
