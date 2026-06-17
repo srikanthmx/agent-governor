@@ -147,9 +147,10 @@ GITHUB_OAUTH_SCOPES="repo read:user user:email read:org"
 
 `GITHUB_OAUTH_REDIRECT_URI` is optional locally. Leave it unset if you want the app to use the current browser origin, or set it only when you need a fixed hosted callback URL.
 
-For local desktop setup, First Run -> GitHub also includes `Open Terminal GitHub login`. That button opens Terminal, runs `gh auth login --web` when needed, and syncs repositories with `pnpm agent sync-github-repos --limit 1000`.
+Then use First Run -> GitHub -> Sign in with GitHub in browser. GitHub opens in the browser, the callback stores a local web token, and Governor syncs repositories from that token.
 
-For PR creation and merge, also authenticate the GitHub CLI until those operations are fully token-backed:
+The GitHub CLI is not part of first-run authentication. It is only needed for PR create/merge fallback until those operations are fully token-backed:
+
 
 ```bash
 gh auth login
@@ -470,7 +471,7 @@ The workflow engine is intentionally still thin in this first scaffold. The sche
 
 ## Troubleshooting
 
-- `missing gh`: install GitHub CLI and run `gh auth login`.
+- `missing gh`: install GitHub CLI only if you need PR create/merge fallback from the local CLI path.
 - `missing telegram token`: set `TELEGRAM_BOT_TOKEN`.
 - `Owner approval required`: add your Telegram ID to `config/app.yml` or per-repo owners.
 - `Runtime not found`: check `config/agents.yml` and `pnpm agent list-runtimes`.

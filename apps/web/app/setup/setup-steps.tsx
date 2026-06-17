@@ -84,7 +84,6 @@ export function SetupSteps({
 function GitHubStep() {
   const [auth, setAuth] = useState<AuthState>({});
   const [syncMsg, setSyncMsg] = useState("");
-  const [terminalMsg, setTerminalMsg] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function checkStatus() {
@@ -98,7 +97,6 @@ function GitHubStep() {
   }
   async function startLogin() {
     setBusy(true);
-    setTerminalMsg("");
     try {
       const result = await api("/api/github/auth", { method: "POST" });
       if (result.authUrl) {
@@ -108,19 +106,6 @@ function GitHubStep() {
       setAuth(result);
     }
     finally { setBusy(false); }
-  }
-  async function startTerminalLogin() {
-    setBusy(true);
-    setTerminalMsg("");
-    try {
-      const result = await api("/api/github/terminal-login", { method: "POST" });
-      const connected = Boolean(auth.authenticated);
-      setTerminalMsg(result.ok
-        ? connected
-          ? "Terminal opened. It will verify GitHub auth and sync repos. Return here after it finishes and refresh if counts do not update."
-          : "Terminal opened. Complete the GitHub browser login there, then return here and click Recheck."
-        : result.error ?? "Could not open Terminal automatically.");
-    } finally { setBusy(false); }
   }
   async function refreshLogin() {
     const result = await api("/api/github/auth");
@@ -168,7 +153,7 @@ function GitHubStep() {
           {auth.setupRequired && (
             <div className="p-4 rounded-lg bg-[var(--ag-bg)] border border-[var(--ag-border)]">
               <div className="text-[13px] font-medium text-[var(--ag-text-1)]">GitHub browser SSO needs one-time setup</div>
-              <p className="text-[12px] text-[var(--ag-text-4)] mt-1">Create a GitHub OAuth App, add this callback URL, set the env vars, then restart the app. For local first run, you can also use the Terminal GitHub login button below.</p>
+              <p className="text-[12px] text-[var(--ag-text-4)] mt-1">Configure the GitHub OAuth app once, then this button opens GitHub in the browser and stores the returned token locally.</p>
               <div className="mt-3 space-y-2 text-[12px] text-[var(--ag-text-3)]">
                 <div>Callback URL: <code className="px-2 py-1 rounded bg-[var(--ag-raised)] font-mono text-[var(--ag-text-1)]">{auth.callbackUrl ?? "/api/github/callback"}</code></div>
                 <div>
@@ -183,10 +168,8 @@ function GitHubStep() {
             <button className="ag-btn ag-btn-primary" disabled={busy || auth.setupRequired} onClick={startLogin}>
               Sign in with GitHub in browser
             </button>
-            <button className="ag-btn ag-btn-ghost" disabled={busy} onClick={startTerminalLogin}>Open Terminal GitHub login</button>
             <button className="ag-btn ag-btn-ghost" disabled={busy} onClick={checkStatus}>Recheck</button>
           </div>
-          {terminalMsg && <div className="ag-message ag-message-success">{terminalMsg}</div>}
         </>
       )}
 
@@ -209,7 +192,6 @@ function GitHubStep() {
           </div>
           <div className="flex gap-2">
             <button className="ag-btn ag-btn-ghost" disabled={busy} onClick={disconnectGitHub}>Disconnect</button>
-            <button className="ag-btn ag-btn-ghost" disabled={busy} onClick={startTerminalLogin}>Open Terminal auth/sync</button>
             <button className="ag-btn ag-btn-primary" disabled={busy} onClick={syncRepos}>
               {busy ? "Syncing..." : "Sync"}
             </button>
@@ -217,7 +199,6 @@ function GitHubStep() {
         </div>
       )}
 
-      {auth.authenticated && terminalMsg && <div className="ag-message ag-message-success">{terminalMsg}</div>}
       {syncMsg && <div className="ag-message ag-message-success">{syncMsg}</div>}
     </div>
   );
