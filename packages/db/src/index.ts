@@ -308,13 +308,54 @@ export class WorkerNodeRegistry {
     ).run(input.nodeId, input.taskId ?? null, input.eventType, input.message, JSON.stringify(input.metadata ?? {}), nowIso());
   }
 
+  finishClaim(input: { claimId: number; nodeId: string; status: "completed" | "failed"; result?: Record<string, unknown> }): WorkerTaskClaimRecord {
+    const claim = this.db.prepare("SELECT * FROM worker_task_claims WHERE id = ? AND node_id = ?").get(input.claimId, input.nodeId) as
+      | WorkerTaskClaimRecord
+      | undefined;
+    if (!claim) {
+      throw new Error(`Claim not found: ${input.claimId}`);
+    }
+    const now = nowIso();
+    this.db.prepare(
+      `UPDATE worker_task_claims
+       SET status = ?, updated_at = ?, result_json = ?
+       WHERE id = ? AND node_id = ?`
+    ).run(input.status, now, JSON.stringify(input.result ?? {}), input.claimId, input.nodeId);
+    this.db.prepare("DELETE FROM worker_task_claims WHERE id = ? AND node_id = ?").run(input.claimId, input.nodeId);
+    return { ...claim, status: input.status, updated_at: now, result_json: JSON.stringify(input.result ?? {}) };
+  }
+
   claimNextTask(nodeId: string): { task: TaskRecord; claim: WorkerTaskClaimRecord } | null {
     const task = this.db.prepare(
       `SELECT tasks.*
        FROM tasks
        JOIN repos ON repos.id = tasks.repo_id
-       WHERE tasks.status IN ('NEW', 'CONTEXT_READY', 'PR_READY')
-         AND NOT EXISTS (SELECT 1 FROM worker_task_claims claims WHERE claims.task_id = tasks.id)
+       WHERE (
+           tasks.status IN ('NEW', 'CONTEXT_READY')
+           OR (
+             tasks.status = 'WAITING_REQUIREMENTS_APPROVAL'
+             AND EXISTS (
+               SELECT 1 FROM approvals
+               WHERE approvals.task_id = tasks.id
+                 AND approvals.stage = 'requirements'
+                 AND approvals.status = 'approved'
+             )
+           )
+           OR (
+             tasks.status = 'WAITING_DESIGN_APPROVAL'
+             AND EXISTS (
+               SELECT 1 FROM approvals
+               WHERE approvals.task_id = tasks.id
+                 AND approvals.stage = 'design'
+                 AND approvals.status = 'approved'
+             )
+           )
+         )
+         AND NOT EXISTS (
+           SELECT 1 FROM worker_task_claims claims
+           WHERE claims.task_id = tasks.id
+             AND claims.status IN ('claimed', 'running')
+         )
        ORDER BY tasks.created_at ASC
        LIMIT 1`
     ).get() as TaskRecord | undefined;

@@ -13,6 +13,7 @@
   "dependencies": {
     "@agent-governor/config": "workspace:*",
     "@agent-governor/db": "workspace:*",
-    "@agent-governor/runtime": "workspace:*"
+    "@agent-governor/runtime": "workspace:*",
+    "@agent-governor/workflow": "workspace:*"
   }
 }
