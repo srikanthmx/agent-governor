@@ -10,7 +10,7 @@ export default function FirstRunPage() {
     redirect("/");
   }
 
-  const { repos, githubRepos, runtimes, localTools } = getDashboardData();
+  const { repos, githubRepos, runtimes, localTools, workerNodes, githubAppConfigured } = getDashboardData();
 
   return (
     <div className="ag-animate-in">
@@ -19,6 +19,8 @@ export default function FirstRunPage() {
         githubRepos={githubRepos}
         runtimes={runtimes}
         localTools={localTools}
+        workerNodes={workerNodes}
+        githubAppConfigured={githubAppConfigured}
       />
     </div>
   );

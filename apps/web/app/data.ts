@@ -12,6 +12,31 @@ export interface DashboardData {
   localTools: ReturnType<typeof detectLocalTools>;
   repos: Array<{ id: number; name: string; github: string }>;
   githubRepos: Array<{ id: number; nameWithOwner: string; description: string; visibility: string; defaultBranch: string; url: string; updatedAt: string }>;
+  workerNodes: Array<{
+    id: string;
+    name: string;
+    mode: string;
+    status: string;
+    effectiveStatus: "online" | "stale" | "offline";
+    capabilities: string[];
+    runtimes: string[];
+    repoAllowlist: string[];
+    endpointUrl: string | null;
+    createdAt: string;
+    lastSeenAt: string;
+    lastSeenAgeSec: number;
+    activeClaims: number;
+  }>;
+  workerEvents: Array<{
+    id: number;
+    nodeId: string;
+    nodeName: string | null;
+    taskId: number | null;
+    eventType: string;
+    message: string;
+    createdAt: string;
+  }>;
+  githubAppConfigured: boolean;
 }
 
 export interface TaskDetailData {
@@ -79,6 +104,28 @@ function readRunLog(logsPath: string | null | undefined, name: string): string {
   return readFileSync(path, "utf8").slice(0, 20000);
 }
 
+function parseJsonArray(value: string | null | undefined): string[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function lastSeenAgeSec(value: string): number {
+  const time = new Date(value).getTime();
+  if (!Number.isFinite(time)) return Number.POSITIVE_INFINITY;
+  return Math.max(0, Math.floor((Date.now() - time) / 1000));
+}
+
+function effectiveNodeStatus(status: string, ageSec: number): "online" | "stale" | "offline" {
+  if (status === "offline") return "offline";
+  if (ageSec > 120) return "stale";
+  return "online";
+}
+
 export function getDashboardData(): DashboardData {
   const config = loadConfig(process.cwd());
   const db = new DatabaseSync(config.app.paths.database);
@@ -130,6 +177,39 @@ export function getDashboardData(): DashboardData {
       updated_at TEXT NOT NULL,
       synced_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS worker_nodes (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      owner_id TEXT,
+      mode TEXT NOT NULL DEFAULT 'desktop',
+      status TEXT NOT NULL DEFAULT 'offline',
+      capabilities_json TEXT NOT NULL DEFAULT '[]',
+      runtimes_json TEXT NOT NULL DEFAULT '[]',
+      repo_allowlist_json TEXT NOT NULL DEFAULT '[]',
+      endpoint_url TEXT,
+      auth_token_hash TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      last_seen_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS worker_task_claims (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      node_id TEXT NOT NULL REFERENCES worker_nodes(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'claimed',
+      claimed_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      result_json TEXT,
+      UNIQUE(task_id)
+    );
+    CREATE TABLE IF NOT EXISTS worker_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      node_id TEXT NOT NULL REFERENCES worker_nodes(id) ON DELETE CASCADE,
+      task_id INTEGER,
+      event_type TEXT NOT NULL,
+      message TEXT NOT NULL,
+      metadata_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL
+    );
   `);
   try {
     const tasks = db.prepare(`
@@ -179,6 +259,52 @@ export function getDashboardData(): DashboardData {
       FROM github_repos
       ORDER BY updated_at DESC, name_with_owner ASC
     `).all() as DashboardData["githubRepos"];
+
+    const workerNodeRows = db.prepare(`
+      SELECT worker_nodes.id,
+             worker_nodes.name,
+             worker_nodes.mode,
+             worker_nodes.status,
+             worker_nodes.capabilities_json AS capabilitiesJson,
+             worker_nodes.runtimes_json AS runtimesJson,
+             worker_nodes.repo_allowlist_json AS repoAllowlistJson,
+             worker_nodes.endpoint_url AS endpointUrl,
+             worker_nodes.created_at AS createdAt,
+             worker_nodes.last_seen_at AS lastSeenAt,
+             COUNT(worker_task_claims.id) AS activeClaims
+      FROM worker_nodes
+      LEFT JOIN worker_task_claims
+        ON worker_task_claims.node_id = worker_nodes.id
+       AND worker_task_claims.status IN ('claimed', 'running')
+      GROUP BY worker_nodes.id
+      ORDER BY worker_nodes.last_seen_at DESC, worker_nodes.name ASC
+    `).all() as Array<{
+      id: string;
+      name: string;
+      mode: string;
+      status: string;
+      capabilitiesJson: string;
+      runtimesJson: string;
+      repoAllowlistJson: string;
+      endpointUrl: string | null;
+      createdAt: string;
+      lastSeenAt: string;
+      activeClaims: number;
+    }>;
+
+    const workerEvents = db.prepare(`
+      SELECT worker_events.id,
+             worker_events.node_id AS nodeId,
+             worker_nodes.name AS nodeName,
+             worker_events.task_id AS taskId,
+             worker_events.event_type AS eventType,
+             worker_events.message,
+             worker_events.created_at AS createdAt
+      FROM worker_events
+      LEFT JOIN worker_nodes ON worker_nodes.id = worker_events.node_id
+      ORDER BY worker_events.created_at DESC
+      LIMIT 40
+    `).all() as DashboardData["workerEvents"];
 
     const localTools = detectLocalTools(config.agents);
     const marketById = new Map(localTools.map((tool) => [tool.id, tool]));
@@ -240,7 +366,27 @@ export function getDashboardData(): DashboardData {
         defaultBranch: repo.defaultBranch,
         url: repo.url,
         updatedAt: repo.updatedAt
-      }))
+      })),
+      workerNodes: workerNodeRows.map((node) => {
+        const ageSec = lastSeenAgeSec(node.lastSeenAt);
+        return {
+          id: node.id,
+          name: node.name,
+          mode: node.mode,
+          status: node.status,
+          effectiveStatus: effectiveNodeStatus(node.status, ageSec),
+          capabilities: parseJsonArray(node.capabilitiesJson),
+          runtimes: parseJsonArray(node.runtimesJson),
+          repoAllowlist: parseJsonArray(node.repoAllowlistJson),
+          endpointUrl: node.endpointUrl,
+          createdAt: node.createdAt,
+          lastSeenAt: node.lastSeenAt,
+          lastSeenAgeSec: ageSec,
+          activeClaims: node.activeClaims
+        };
+      }),
+      workerEvents,
+      githubAppConfigured: Boolean(process.env.GITHUB_APP_ID && process.env.GITHUB_APP_PRIVATE_KEY)
     };
   } finally {
     db.close();

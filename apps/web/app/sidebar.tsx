@@ -21,6 +21,11 @@ const nav = [
     icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1.5l5 3v6l-5 3-5-3v-6l5-3z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/><path d="M5.25 7.5h4.5M7.5 5.25v4.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>,
   },
   {
+    href: "/nodes",
+    label: "Nodes",
+    icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M3 4.5h9M3 10.5h9M4.5 2h6A1.5 1.5 0 0112 3.5v2A1.5 1.5 0 0110.5 7h-6A1.5 1.5 0 013 5.5v-2A1.5 1.5 0 014.5 2zM4.5 8h6A1.5 1.5 0 0112 9.5v2a1.5 1.5 0 01-1.5 1.5h-6A1.5 1.5 0 013 11.5v-2A1.5 1.5 0 014.5 8z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>,
+  },
+  {
     href: "/first-run",
     label: "First Run",
     icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="2" stroke="currentColor" strokeWidth="1.2"/><path d="M7.5 1.5v2M7.5 11.5v2M1.5 7.5h2M11.5 7.5h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>,
@@ -35,6 +40,7 @@ const controlPlaneNav = [
     icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2.5 3.5h10M2.5 7.5h10M2.5 11.5h6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>,
   },
   nav[2],
+  nav[3],
 ];
 
 export function Sidebar({ mode = "local" }: { mode?: WebAppMode }) {

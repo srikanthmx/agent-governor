@@ -6,6 +6,16 @@ type Repo = { id: number; name: string; github: string };
 type GithubRepo = { id: number; nameWithOwner: string; description: string; visibility: string; defaultBranch: string; url: string };
 type Runtime = { id: string; label: string; type: string; enabled: boolean; detected: boolean; detectedCommand: string | null; command: string | null; capabilities: string[] };
 type LocalTool = { id: string; label: string; kind: string; runnable: boolean; detected: boolean; detectedBy: string | null; capabilities: string[] };
+type WorkerNode = {
+  id: string;
+  name: string;
+  mode: string;
+  effectiveStatus: "online" | "stale" | "offline";
+  runtimes: string[];
+  capabilities: string[];
+  repoAllowlist: string[];
+  lastSeenAgeSec: number;
+};
 
 async function readJson(res: Response) {
   const text = await res.text();
@@ -31,21 +41,25 @@ interface AuthState {
 }
 
 export function SetupFlow({
-  repos, githubRepos, runtimes, localTools,
+  repos, githubRepos, runtimes, localTools, workerNodes, githubAppConfigured,
 }: {
   repos: Repo[];
   githubRepos: GithubRepo[];
   runtimes: Runtime[];
   localTools: LocalTool[];
+  workerNodes: WorkerNode[];
+  githubAppConfigured: boolean;
 }) {
   const runnableRuntimes = runtimes.filter((runtime) => runtime.enabled);
-  const initialStep = githubRepos.length === 0 ? 0 : repos.length === 0 ? 1 : runnableRuntimes.length === 0 ? 2 : 1;
+  const onlineNodes = workerNodes.filter((node) => node.effectiveStatus === "online");
+  const initialStep = githubRepos.length === 0 ? 0 : repos.length === 0 ? 1 : runnableRuntimes.length === 0 ? 2 : onlineNodes.length === 0 ? 3 : 1;
   const [activeStep, setActiveStep] = useState(initialStep);
 
   const steps = [
     { title: "GitHub", description: "Sign in with GitHub", done: githubRepos.length > 0 },
     { title: "Repository", description: `${githubRepos.length} synced, ${repos.length} managed`, done: repos.length > 0 },
     { title: "Runtimes", description: "Check local workers", done: runnableRuntimes.length > 0 },
+    { title: "Worker", description: `${onlineNodes.length} node${onlineNodes.length === 1 ? "" : "s"} online`, done: onlineNodes.length > 0 },
   ];
   const completeCount = steps.filter((step) => step.done).length;
 
@@ -62,7 +76,7 @@ export function SetupFlow({
           </div>
           <div className="min-w-[180px] rounded-lg border border-[var(--ag-line)] bg-[var(--ag-surface)] p-4">
             <div className="text-xs text-[var(--ag-muted)]">Setup progress</div>
-            <div className="mt-1 text-2xl font-semibold text-[var(--ag-heading)]">{completeCount}/3</div>
+            <div className="mt-1 text-2xl font-semibold text-[var(--ag-heading)]">{completeCount}/{steps.length}</div>
             <div className="mt-3 h-2 rounded-full bg-[var(--ag-bg)]">
               <div className="h-2 rounded-full bg-[var(--ag-primary)] transition-all" style={{ width: `${(completeCount / steps.length) * 100}%` }} />
             </div>
@@ -97,6 +111,7 @@ export function SetupFlow({
       {activeStep === 0 && <GitHubStep />}
       {activeStep === 1 && <RepoStep repos={repos} githubRepos={githubRepos} />}
       {activeStep === 2 && <AgentStep runtimes={runtimes} localTools={localTools} />}
+      {activeStep === 3 && <WorkerStep workerNodes={workerNodes} repos={repos} githubAppConfigured={githubAppConfigured} />}
 
       {completeCount === steps.length && (
         <div className="ag-card border-[var(--ag-green)] p-5">
@@ -109,6 +124,86 @@ export function SetupFlow({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function WorkerStep({ workerNodes, repos, githubAppConfigured }: { workerNodes: WorkerNode[]; repos: Repo[]; githubAppConfigured: boolean }) {
+  const [copied, setCopied] = useState(false);
+  const allowlist = repos.map((repo) => repo.github).join(",");
+  const command = [
+    "AG_CONTROL_PLANE_URL=http://127.0.0.1:3002",
+    allowlist ? `AG_WORKER_REPO_ALLOWLIST=${allowlist}` : "AG_WORKER_REPO_ALLOWLIST=owner/repo",
+    "pnpm --filter @agent-governor/worker start"
+  ].join(" \\\n  ");
+
+  async function copyCommand() {
+    await navigator.clipboard.writeText(command);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="ag-card p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-[var(--ag-heading)]">Worker Node</h2>
+            <p className="mt-1 max-w-[720px] text-xs leading-5 text-[var(--ag-muted)]">
+              This is the execution layer. Remote chat, Hermes, or Telegram can create work, but an opted-in worker node runs the local CLI agent and raises the PR.
+            </p>
+          </div>
+          <a className="ag-btn ag-btn-secondary" href="/nodes">Open nodes</a>
+        </div>
+
+        <div className="mt-4 rounded-lg border border-[var(--ag-line)] bg-[var(--ag-bg)] p-4">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <div className="text-xs font-medium text-[var(--ag-soft)]">Run this in a terminal from the repo root</div>
+            <button className="ag-btn ag-btn-sm ag-btn-ghost" onClick={copyCommand}>{copied ? "Copied" : "Copy"}</button>
+          </div>
+          <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-xs leading-5 text-[var(--ag-text-1)]">{command}</pre>
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <div className="rounded-md border border-[var(--ag-border)] bg-[var(--ag-bg)] p-3">
+            <div className="text-[11px] text-[var(--ag-text-4)]">Node auth</div>
+            <div className="mt-1 text-[13px] text-[var(--ag-green)]">hash-at-rest</div>
+          </div>
+          <div className="rounded-md border border-[var(--ag-border)] bg-[var(--ag-bg)] p-3">
+            <div className="text-[11px] text-[var(--ag-text-4)]">Repo access</div>
+            <div className="mt-1 text-[13px] text-[var(--ag-text-1)]">{allowlist ? `${repos.length} allowed` : "set allowlist"}</div>
+          </div>
+          <div className="rounded-md border border-[var(--ag-border)] bg-[var(--ag-bg)] p-3">
+            <div className="text-[11px] text-[var(--ag-text-4)]">Remote GitHub tokens</div>
+            <div className={`mt-1 text-[13px] ${githubAppConfigured ? "text-[var(--ag-green)]" : "text-[var(--ag-amber)]"}`}>
+              {githubAppConfigured ? "GitHub App ready" : "local gh only"}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="ag-card p-5">
+        <h2 className="text-base font-semibold text-[var(--ag-heading)]">Connected Nodes ({workerNodes.length})</h2>
+        <div className="mt-3 space-y-2">
+          {workerNodes.length === 0 ? (
+            <div className="rounded-lg border border-[var(--ag-line)] bg-[var(--ag-bg)] p-4 text-sm text-[var(--ag-muted)]">
+              No worker nodes have enrolled yet. Start the worker command above, then refresh this page.
+            </div>
+          ) : workerNodes.map((node) => (
+            <div key={node.id} className="rounded-lg border border-[var(--ag-line)] bg-[var(--ag-bg)] px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-medium text-[var(--ag-heading)]">{node.name}</div>
+                  <div className="mt-0.5 text-xs text-[var(--ag-muted)]">{node.runtimes.join(", ") || "no runtimes reported"} · last seen {node.lastSeenAgeSec}s ago</div>
+                </div>
+                <span className={`ag-badge ${node.effectiveStatus === "online" ? "ag-badge-success" : node.effectiveStatus === "stale" ? "ag-badge-waiting" : "ag-badge-muted"}`}>
+                  {node.effectiveStatus}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

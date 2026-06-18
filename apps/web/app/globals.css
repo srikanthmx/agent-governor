@@ -28,6 +28,17 @@
   --ag-text-3:   #71717a;
   --ag-text-4:   #3f3f46;
 
+  /* Compatibility aliases used by setup/settings screens */
+  --ag-heading: var(--ag-text-1);
+  --ag-soft: var(--ag-text-2);
+  --ag-muted: var(--ag-text-3);
+  --ag-line: var(--ag-border);
+  --ag-line-strong: var(--ag-border-bold);
+  --ag-panel: var(--ag-surface);
+  --ag-panel-2: var(--ag-raised);
+  --ag-primary: var(--ag-blue);
+  --ag-coral: var(--ag-red);
+
   /* Accents */
   --ag-blue:     #3b82f6;
   --ag-green:    #22c55e;
@@ -239,6 +250,13 @@ button, input, textarea, select { font: inherit; }
 .ag-btn-primary { background: var(--ag-blue); color: white; }
 .ag-btn-primary:hover:not(:disabled) { background: #4b8df8; box-shadow: var(--ag-glow-blue); }
 
+.ag-btn-secondary {
+  background: var(--ag-raised);
+  border: 1px solid var(--ag-border);
+  color: var(--ag-text-1);
+}
+.ag-btn-secondary:hover:not(:disabled) { border-color: var(--ag-border-bold); background: var(--ag-overlay); }
+
 .ag-btn-success { background: var(--ag-green); color: white; }
 .ag-btn-success:hover:not(:disabled) { background: #2dd667; box-shadow: var(--ag-glow-green); }
 
@@ -359,6 +377,9 @@ button, input, textarea, select { font: inherit; }
 
 .ag-badge-neutral  { background: var(--ag-raised); color: var(--ag-text-3); }
 .ag-badge-neutral::before { background: var(--ag-text-4); }
+
+.ag-badge-muted { background: var(--ag-raised); color: var(--ag-text-4); }
+.ag-badge-muted::before { background: var(--ag-text-4); }
 
 .ag-badge-sm { padding: 1px 6px; font-size: 10px; }
 .ag-badge-sm::before { width: 5px; height: 5px; }

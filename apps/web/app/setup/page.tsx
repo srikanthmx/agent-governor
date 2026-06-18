@@ -10,7 +10,7 @@ export default function SetupPage() {
     redirect("/");
   }
 
-  const { repos, githubRepos, runtimes, localTools } = getDashboardData();
+  const { repos, githubRepos, runtimes, localTools, workerNodes, githubAppConfigured } = getDashboardData();
 
   return (
     <div className="ag-animate-in">
@@ -19,6 +19,8 @@ export default function SetupPage() {
         githubRepos={githubRepos}
         runtimes={runtimes}
         localTools={localTools}
+        workerNodes={workerNodes}
+        githubAppConfigured={githubAppConfigured}
       />
     </div>
   );
