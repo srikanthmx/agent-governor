@@ -119,8 +119,45 @@ export function migrate(db: GovernorDb): void {
       metadata_json TEXT NOT NULL,
       created_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS worker_nodes (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      owner_id TEXT,
+      mode TEXT NOT NULL DEFAULT 'desktop',
+      status TEXT NOT NULL DEFAULT 'offline',
+      capabilities_json TEXT NOT NULL DEFAULT '[]',
+      runtimes_json TEXT NOT NULL DEFAULT '[]',
+      repo_allowlist_json TEXT NOT NULL DEFAULT '[]',
+      endpoint_url TEXT,
+      auth_token_hash TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      last_seen_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS worker_task_claims (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      node_id TEXT NOT NULL REFERENCES worker_nodes(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'claimed',
+      claimed_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      result_json TEXT,
+      UNIQUE(task_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS worker_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      node_id TEXT NOT NULL REFERENCES worker_nodes(id) ON DELETE CASCADE,
+      task_id INTEGER,
+      event_type TEXT NOT NULL,
+      message TEXT NOT NULL,
+      metadata_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL
+    );
   `);
   ensureAgentRunTelemetryColumns(db);
+  ensureWorkerNodeColumns(db);
 }
 
 function ensureAgentRunTelemetryColumns(db: GovernorDb): void {
@@ -139,6 +176,13 @@ function ensureAgentRunTelemetryColumns(db: GovernorDb): void {
   }
 }
 
+function ensureWorkerNodeColumns(db: GovernorDb): void {
+  const columns = new Set((db.prepare("PRAGMA table_info(worker_nodes)").all() as Array<{ name: string }>).map((column) => column.name));
+  if (!columns.has("auth_token_hash")) {
+    db.prepare("ALTER TABLE worker_nodes ADD COLUMN auth_token_hash TEXT NOT NULL DEFAULT ''").run();
+  }
+}
+
 export interface GitHubRepoRecord {
   id: number;
   name: string;
@@ -150,6 +194,140 @@ export interface GitHubRepoRecord {
   url: string;
   updated_at: string;
   synced_at: string;
+}
+
+export interface WorkerNodeRecord {
+  id: string;
+  name: string;
+  owner_id: string | null;
+  mode: string;
+  status: string;
+  capabilities_json: string;
+  runtimes_json: string;
+  repo_allowlist_json: string;
+  endpoint_url: string | null;
+  auth_token_hash: string;
+  created_at: string;
+  last_seen_at: string;
+}
+
+export interface WorkerTaskClaimRecord {
+  id: number;
+  task_id: number;
+  node_id: string;
+  status: string;
+  claimed_at: string;
+  updated_at: string;
+  result_json: string | null;
+}
+
+export class WorkerNodeRegistry {
+  constructor(private readonly db: GovernorDb) {}
+
+  register(input: {
+    id: string;
+    name: string;
+    ownerId?: string | null;
+    mode?: string;
+    capabilities?: string[];
+    runtimes?: string[];
+    repoAllowlist?: string[];
+    endpointUrl?: string | null;
+    authTokenHash: string;
+  }): WorkerNodeRecord {
+    const now = nowIso();
+    this.db.prepare(
+      `INSERT INTO worker_nodes
+       (id, name, owner_id, mode, status, capabilities_json, runtimes_json, repo_allowlist_json, endpoint_url, auth_token_hash, created_at, last_seen_at)
+       VALUES (?, ?, ?, ?, 'online', ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         name = excluded.name,
+         owner_id = excluded.owner_id,
+         mode = excluded.mode,
+         status = 'online',
+         capabilities_json = excluded.capabilities_json,
+         runtimes_json = excluded.runtimes_json,
+         repo_allowlist_json = excluded.repo_allowlist_json,
+         endpoint_url = excluded.endpoint_url,
+         auth_token_hash = excluded.auth_token_hash,
+         last_seen_at = excluded.last_seen_at`
+    ).run(
+      input.id,
+      input.name,
+      input.ownerId ?? null,
+      input.mode ?? "desktop",
+      JSON.stringify(input.capabilities ?? []),
+      JSON.stringify(input.runtimes ?? []),
+      JSON.stringify(input.repoAllowlist ?? []),
+      input.endpointUrl ?? null,
+      input.authTokenHash,
+      now,
+      now
+    );
+    return this.get(input.id) as WorkerNodeRecord;
+  }
+
+  get(id: string): WorkerNodeRecord | undefined {
+    return this.db.prepare("SELECT * FROM worker_nodes WHERE id = ?").get(id) as WorkerNodeRecord | undefined;
+  }
+
+  getByTokenHash(authTokenHash: string): WorkerNodeRecord | undefined {
+    return this.db.prepare("SELECT * FROM worker_nodes WHERE auth_token_hash = ?").get(authTokenHash) as WorkerNodeRecord | undefined;
+  }
+
+  list(): WorkerNodeRecord[] {
+    return this.db.prepare("SELECT * FROM worker_nodes ORDER BY last_seen_at DESC, name ASC").all() as WorkerNodeRecord[];
+  }
+
+  heartbeat(input: { nodeId: string; status?: string; capabilities?: string[]; runtimes?: string[]; repoAllowlist?: string[] }): WorkerNodeRecord {
+    const node = this.get(input.nodeId);
+    if (!node) throw new Error(`Worker node not found: ${input.nodeId}`);
+    this.db.prepare(
+      `UPDATE worker_nodes
+       SET status = ?,
+           capabilities_json = COALESCE(?, capabilities_json),
+           runtimes_json = COALESCE(?, runtimes_json),
+           repo_allowlist_json = COALESCE(?, repo_allowlist_json),
+           last_seen_at = ?
+       WHERE id = ?`
+    ).run(
+      input.status ?? "online",
+      input.capabilities ? JSON.stringify(input.capabilities) : null,
+      input.runtimes ? JSON.stringify(input.runtimes) : null,
+      input.repoAllowlist ? JSON.stringify(input.repoAllowlist) : null,
+      nowIso(),
+      input.nodeId
+    );
+    return this.get(input.nodeId) as WorkerNodeRecord;
+  }
+
+  recordEvent(input: { nodeId: string; taskId?: number | null; eventType: string; message: string; metadata?: Record<string, unknown> }) {
+    this.db.prepare(
+      `INSERT INTO worker_events (node_id, task_id, event_type, message, metadata_json, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    ).run(input.nodeId, input.taskId ?? null, input.eventType, input.message, JSON.stringify(input.metadata ?? {}), nowIso());
+  }
+
+  claimNextTask(nodeId: string): { task: TaskRecord; claim: WorkerTaskClaimRecord } | null {
+    const task = this.db.prepare(
+      `SELECT tasks.*
+       FROM tasks
+       JOIN repos ON repos.id = tasks.repo_id
+       WHERE tasks.status IN ('NEW', 'CONTEXT_READY', 'PR_READY')
+         AND NOT EXISTS (SELECT 1 FROM worker_task_claims claims WHERE claims.task_id = tasks.id)
+       ORDER BY tasks.created_at ASC
+       LIMIT 1`
+    ).get() as TaskRecord | undefined;
+    if (!task) return null;
+
+    const now = nowIso();
+    const result = this.db.prepare(
+      `INSERT INTO worker_task_claims (task_id, node_id, status, claimed_at, updated_at)
+       VALUES (?, ?, 'claimed', ?, ?)`
+    ).run(task.id, nodeId, now, now);
+    const claim = this.db.prepare("SELECT * FROM worker_task_claims WHERE id = ?").get(result.lastInsertRowid) as WorkerTaskClaimRecord;
+    return { task, claim };
+  }
 }
 
 export class RepoRegistry {

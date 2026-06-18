@@ -4,6 +4,10 @@
   "private": true,
   "description": "Local-first AI agent governance control plane.",
   "type": "module",
+  "engines": {
+    "node": ">=20 <26",
+    "pnpm": ">=9 <10"
+  },
   "scripts": {
     "agent": "pnpm --filter @agent-governor/cli agent",
     "build": "pnpm -r build",

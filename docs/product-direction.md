@@ -150,6 +150,8 @@ Cloud Runner
 
 Nodes advertise health, resources, runtime availability, and trust boundaries.
 
+The production credential rule is strict: owned desktop nodes can use their local `gh` browser-auth keychain, but remote/shared nodes must use GitHub App installation tokens. Governor should mint a short-lived, repo-scoped token only for a claimed job, deliver it to the authenticated worker, and avoid persisting the GitHub token anywhere. Worker node credentials are separate random node tokens and are stored hash-at-rest by the control plane.
+
 ## Phase 5: P2P Agent Fabric
 
 P2P delegation comes after the runtime router, observability, policy, and node scheduler are solid.

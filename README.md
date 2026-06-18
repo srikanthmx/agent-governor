@@ -77,7 +77,7 @@ Do these steps first from a fresh clone. The app can open without them, but GitH
 
 Required:
 
-- Node.js 20+
+- Node.js 20, 22, or 24. Do not use Node 26 yet; `better-sqlite3@11.10.0` does not build against it.
 - pnpm 9+
 - git
 - GitHub CLI (`gh`) for local browser sign-in and PR create/merge fallback
@@ -135,6 +135,15 @@ GITHUB_OAUTH_SCOPES="repo read:user user:email read:org"
 ```
 
 `GITHUB_OAUTH_REDIRECT_URI` is optional locally. Leave it unset if you want the app to use the current browser origin, or set it only when you need a fixed hosted callback URL.
+
+For remote/shared worker nodes that need to clone, push, and open PRs against user repos, use GitHub App installation tokens instead of personal access tokens:
+
+```bash
+GITHUB_APP_ID=...
+GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"
+```
+
+Install the GitHub App on the target repositories. Governor mints short-lived installation tokens only when an authenticated worker requests access for a repo it is allowed to handle. These tokens are not stored in SQLite and should be injected into git for that job only with `http.https://github.com/.extraheader`.
 
 ### 5. Initialize And Check Governor
 
@@ -211,6 +220,34 @@ Peer identity and sharing:
 - `p2p_shared` agents are eligible for routing from other approved users/workspaces.
 - Routing must consider peer online status, repo allowlist, agent sharing scope, execution mode, and owner approval state.
 - The cloud stores the minimum ledger required for coordination, audit, and reports: peer status, task state, approval records, run events, redacted/capped logs, PR links, preview links, and analytics.
+
+Worker node API:
+
+```text
+POST /api/nodes                  register a node and return its node token once
+POST /api/nodes/heartbeat        refresh node health, runtimes, and repo allowlist
+POST /api/nodes/claim            claim the next eligible task
+POST /api/nodes/events           append worker audit events
+POST /api/nodes/github-token     mint a repo-scoped GitHub App installation token
+```
+
+Worker node tokens are random node credentials. Governor stores only a SHA-256 hash of the token, optionally peppered with `AG_NODE_TOKEN_PEPPER`.
+
+Run a local worker against the desktop control plane:
+
+```bash
+AG_CONTROL_PLANE_URL=http://127.0.0.1:3002 \
+AG_WORKER_REPO_ALLOWLIST=owner/repo,owner/another-repo \
+pnpm --filter @agent-governor/worker start
+```
+
+The worker writes its node credential to `data/worker-node.json` with `0600` permissions unless `AG_WORKER_NODE_ID` and `AG_WORKER_NODE_TOKEN` are supplied by the environment. Do not put GitHub tokens in this file.
+
+GitHub credential model:
+- Local desktop node acting for its owner: use GitHub CLI browser auth and the OS keychain.
+- Hosted or remote worker node acting on a selected repo: use GitHub App installation tokens.
+- Never store user PATs or SSH keys in the control plane.
+- Installation tokens are repo-scoped, expire quickly, and are passed to the worker only for the current job.
 
 ## Hermes Bridge
 
