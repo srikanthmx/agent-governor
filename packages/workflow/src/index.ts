@@ -358,8 +358,16 @@ export class WorkflowEngine {
 
   async openPullRequest(taskId: number, ownerId: string, input?: { title?: string; body?: string }): Promise<TaskRecord> {
     const task = this.tasks.getTask(taskId);
-    const repo = this.repos.getRepo(task.repo_id);
     this.approvals.requireOwner(ownerId, task.repo_id);
+    if (!this.approvals.hasApproval(task.id, "pr")) {
+      throw new Error(`TASK-${task.id} needs PR approval before opening a PR`);
+    }
+    return this.openApprovedPullRequest(taskId, ownerId, input);
+  }
+
+  async openApprovedPullRequest(taskId: number, actorId = "worker", input?: { title?: string; body?: string }): Promise<TaskRecord> {
+    const task = this.tasks.getTask(taskId);
+    const repo = this.repos.getRepo(task.repo_id);
     if (!this.approvals.hasApproval(task.id, "pr")) {
       throw new Error(`TASK-${task.id} needs PR approval before opening a PR`);
     }
@@ -378,8 +386,8 @@ export class WorkflowEngine {
     this.tasks.setExecutionContext(task.id, { prUrl });
     this.tasks.updateStatus(task.id, "PR_OPENED", "pr");
     audit(this.input.db, {
-      actorType: "owner",
-      actorId: ownerId,
+      actorType: actorId.startsWith("worker:") ? "worker" : "owner",
+      actorId,
       action: "pr.open",
       entityType: "task",
       entityId: String(task.id),

@@ -97,7 +97,7 @@ async function pollOnce() {
     ok: boolean;
     claimed?: boolean;
     claim?: { id: number; status: string; claimedAt: string };
-    task?: { id: number; title: string; repo?: { owner: string; repo: string } | null };
+    task?: { id: number; title: string; status?: string; repo?: { owner: string; repo: string } | null };
     error?: string;
   }>(
     "/api/nodes/claim",
@@ -118,10 +118,10 @@ async function pollOnce() {
   if (!executeClaims || !result.claim?.id) {
     return;
   }
-  await executeClaim(result.claim.id, result.task.id);
+  await executeClaim(result.claim.id, result.task.id, result.task.status);
 }
 
-async function executeClaim(claimId: number, taskId: number) {
+async function executeClaim(claimId: number, taskId: number, taskStatus?: string) {
   const startedAt = Date.now();
   try {
     await postJson("/api/nodes/events", {
@@ -133,23 +133,29 @@ async function executeClaim(claimId: number, taskId: number) {
     const db = openDb(config.app.paths.database);
     try {
       migrate(db);
-      const task = await new WorkflowEngine({ db, config }).advance(taskId, `worker:${state.nodeId}`, {
-        runtimeId: preferredRuntime
-      });
+      const workflow = new WorkflowEngine({ db, config });
+      const task = taskStatus === "WAITING_PR_APPROVAL"
+        ? await workflow.openApprovedPullRequest(taskId, `worker:${state.nodeId}`)
+        : await workflow.advance(taskId, `worker:${state.nodeId}`, {
+            runtimeId: preferredRuntime
+          });
       await postJson(`/api/nodes/claims/${claimId}`, {
         status: "completed",
         result: {
           taskId,
           taskStatus: task.status,
           currentStage: task.current_stage,
+          prUrl: task.pr_url,
           elapsedMs: Date.now() - startedAt
         }
       }, state.token);
       await postJson("/api/nodes/events", {
         taskId,
         eventType: "worker.execution_completed",
-        message: `Worker ${state.nodeId} advanced TASK-${taskId} to ${task.status}`,
-        metadata: { currentStage: task.current_stage, elapsedMs: Date.now() - startedAt }
+        message: taskStatus === "WAITING_PR_APPROVAL"
+          ? `Worker ${state.nodeId} opened PR for TASK-${taskId}`
+          : `Worker ${state.nodeId} advanced TASK-${taskId} to ${task.status}`,
+        metadata: { currentStage: task.current_stage, prUrl: task.pr_url, elapsedMs: Date.now() - startedAt }
       }, state.token);
     } finally {
       db.close();

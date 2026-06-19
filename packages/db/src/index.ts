@@ -350,6 +350,15 @@ export class WorkerNodeRegistry {
                  AND approvals.status = 'approved'
              )
            )
+           OR (
+             tasks.status = 'WAITING_PR_APPROVAL'
+             AND EXISTS (
+               SELECT 1 FROM approvals
+               WHERE approvals.task_id = tasks.id
+                 AND approvals.stage = 'pr'
+                 AND approvals.status = 'approved'
+             )
+           )
          )
          AND NOT EXISTS (
            SELECT 1 FROM worker_task_claims claims
