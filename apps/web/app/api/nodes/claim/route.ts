@@ -14,8 +14,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, claimed: false, task: null });
     }
     const repo = context.db
-      .prepare("SELECT name, github_owner, github_repo, default_branch FROM repos WHERE id = ?")
-      .get(claimed.task.repo_id) as { name: string; github_owner: string; github_repo: string; default_branch: string } | undefined;
+      .prepare("SELECT id, name, github_owner, github_repo, default_branch FROM repos WHERE id = ?")
+      .get(claimed.task.repo_id) as { id: number; name: string; github_owner: string; github_repo: string; default_branch: string } | undefined;
     context.registry.recordEvent({
       nodeId: node.id,
       taskId: claimed.task.id,
@@ -37,9 +37,12 @@ export async function POST(request: Request) {
         description: claimed.task.description,
         status: claimed.task.status,
         workflow: claimed.task.workflow,
+        createdBy: claimed.task.created_by,
+        repoId: claimed.task.repo_id,
         branchName: claimed.task.branch_name,
         worktreePath: claimed.task.worktree_path,
         repo: repo ? {
+          id: repo.id,
           name: repo.name,
           owner: repo.github_owner,
           repo: repo.github_repo,

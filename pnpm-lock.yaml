@@ -123,6 +123,12 @@ importers:
       '@agent-governor/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
+      '@agent-governor/workflow':
+        specifier: workspace:*
+        version: link:../../packages/workflow
+      execa:
+        specifier: ^9.6.0
+        version: 9.6.1
 
   packages/config:
     dependencies:
