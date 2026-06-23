@@ -19,6 +19,11 @@ interface AuthState {
   login?: string;
 }
 
+type VerifyState = {
+  ok?: boolean;
+  checks?: Array<{ id: string; ok: boolean; label: string; detail: string }>;
+};
+
 async function readJsonResponse(response: Response) {
   const text = await response.text();
   if (!text) {
@@ -34,6 +39,7 @@ async function readJsonResponse(response: Response) {
 export function GitHubAuthPanel() {
   const [auth, setAuth] = useState<AuthState>({});
   const [syncResult, setSyncResult] = useState<string>("");
+  const [verify, setVerify] = useState<VerifyState>({});
   const [busy, setBusy] = useState(false);
 
   async function checkStatus() {
@@ -51,15 +57,27 @@ export function GitHubAuthPanel() {
   async function startLogin() {
     setBusy(true);
     setSyncResult("");
+    setVerify({});
+    const loginWindow = window.open("", "_blank");
+    let openedLoginUrl = false;
     try {
       const response = await fetch("/api/github/auth", { method: "POST" });
       const result = await readJsonResponse(response);
-      if (result.authUrl) {
-        window.location.href = result.authUrl;
+      const url = result.authUrl ?? result.url;
+      if (url) {
+        openedLoginUrl = true;
+        if (loginWindow) {
+          loginWindow.location.href = url;
+        } else {
+          window.location.href = url;
+        }
+        setAuth(result);
         return;
       }
+      loginWindow?.close();
       setAuth(result);
     } finally {
+      if (!openedLoginUrl) loginWindow?.close();
       setBusy(false);
     }
   }
@@ -101,9 +119,28 @@ export function GitHubAuthPanel() {
     }
   }
 
+  async function verifyGitHub() {
+    setBusy(true);
+    try {
+      const response = await fetch("/api/github/verify", { cache: "no-store" });
+      const result = await readJsonResponse(response);
+      setVerify(result);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   useEffect(() => {
     checkStatus();
   }, []);
+
+  useEffect(() => {
+    if (!auth.pending) return;
+    const timer = window.setInterval(() => {
+      refreshLogin();
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [auth.pending]);
 
   return (
     <div className="space-y-4">
@@ -122,7 +159,8 @@ export function GitHubAuthPanel() {
             {auth.authenticated ? (
               <button className="h-9 rounded-md border border-zinc-700 px-3 text-sm" disabled={busy} onClick={disconnectGitHub}>Disconnect</button>
             ) : null}
-            <button className="h-9 rounded-md bg-zinc-100 px-3 text-sm text-zinc-950" disabled={busy || auth.setupRequired} onClick={startLogin}>Sign in with GitHub</button>
+            <button className="h-9 rounded-md border border-zinc-700 px-3 text-sm" disabled={busy} onClick={verifyGitHub}>Verify</button>
+            <button className="h-9 rounded-md bg-zinc-100 px-3 text-sm text-zinc-950" disabled={busy} onClick={startLogin}>Sign in with GitHub</button>
           </div>
         </div>
 
@@ -155,6 +193,19 @@ export function GitHubAuthPanel() {
         ) : null}
 
         {auth.output ? <pre className="mt-4 max-h-56 overflow-auto rounded bg-black p-3 text-xs text-zinc-400">{auth.output}</pre> : null}
+        {verify.checks ? (
+          <div className="mt-4 space-y-2">
+            {verify.checks.map((check) => (
+              <div key={check.id} className="flex items-start justify-between gap-3 rounded-md border border-zinc-800 bg-zinc-950 p-3 text-xs">
+                <div>
+                  <div className="font-medium text-zinc-200">{check.label}</div>
+                  <div className="mt-1 text-zinc-500">{check.detail}</div>
+                </div>
+                <span className={check.ok ? "text-emerald-400" : "text-amber-400"}>{check.ok ? "OK" : "Check"}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </section>
 
       <section className="rounded-md border border-zinc-800 p-4">

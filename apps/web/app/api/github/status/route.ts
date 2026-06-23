@@ -31,10 +31,16 @@ export async function GET() {
 
   try {
     const result = await execa("gh", ["auth", "status", "--hostname", "github.com"], { reject: false });
+    let login: string | undefined;
+    if (result.exitCode === 0) {
+      const user = await execa("gh", ["api", "user", "--jq", ".login"], { reject: false });
+      login = user.exitCode === 0 ? user.stdout.trim() : undefined;
+    }
     return NextResponse.json({
       authenticated: result.exitCode === 0,
       provider: result.exitCode === 0 ? "gh-cli" : githubOAuthConfigured() ? "github-oauth" : "gh-cli",
       webConfigured: githubOAuthConfigured(),
+      login,
       output: [result.stdout, result.stderr].filter(Boolean).join("\n")
     });
   } catch (error) {

@@ -18,8 +18,8 @@ let activeLogin:
 
 function parseLoginOutput(output: string): { code?: string; url?: string } {
   return {
-    code: output.match(/one-time code:\s*([A-Z0-9-]+)/i)?.[1],
-    url: output.match(/https:\/\/github\.com\/login\/device/)?.[0]
+    code: output.match(/(?:one-time code|code):\s*([A-Z0-9-]+)/i)?.[1],
+    url: output.match(/https:\/\/github\.com\/login\/device[^\s]*/)?.[0]
   };
 }
 
@@ -88,6 +88,18 @@ function activeLoginResponse() {
   });
 }
 
+async function openBrowser(url: string) {
+  if (process.platform === "darwin") {
+    await execa("open", [url], { reject: false });
+    return;
+  }
+  if (process.platform === "win32") {
+    await execa("cmd", ["/c", "start", "", url], { reject: false });
+    return;
+  }
+  await execa("xdg-open", [url], { reject: false });
+}
+
 export async function POST(request: Request) {
   if (githubOAuthConfigured()) {
     return githubOAuthResponse(request, true);
@@ -143,6 +155,9 @@ export async function POST(request: Request) {
   while (Date.now() < deadline) {
     const parsed = parseLoginOutput(activeLogin.output);
     if (parsed.code || parsed.url) {
+      if (parsed.url) {
+        await openBrowser(parsed.url);
+      }
       return NextResponse.json({ ...parsed, pending: true, web: true, provider: "gh-cli", output: activeLogin.output });
     }
     if (activeLogin.done) break;
@@ -191,12 +206,20 @@ export async function GET(request: Request) {
 
 export async function DELETE() {
   const removed = clearStoredGitHubAuth();
+  const logout = await execa("gh", ["auth", "logout", "--hostname", "github.com", "--yes"], { reject: false }).catch((error) => ({
+    exitCode: 1,
+    stdout: "",
+    stderr: error instanceof Error ? error.message : String(error)
+  }));
   const response = NextResponse.json({
     ok: true,
     disconnected: true,
     removed,
+    ghLoggedOut: "exitCode" in logout ? logout.exitCode === 0 : false,
     authenticated: false,
-    message: removed ? "GitHub browser SSO token removed." : "No GitHub browser SSO token was stored."
+    message: removed || ("exitCode" in logout && logout.exitCode === 0)
+      ? "GitHub disconnected."
+      : "No stored GitHub web token was found, and GitHub CLI was not logged out."
   });
   response.cookies.delete("ag_github_oauth_state");
   return response;

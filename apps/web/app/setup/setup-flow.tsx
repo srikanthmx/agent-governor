@@ -40,6 +40,12 @@ interface AuthState {
   login?: string;
 }
 
+type VerifyState = {
+  ok?: boolean;
+  checks?: Array<{ id: string; ok: boolean; label: string; detail: string }>;
+  error?: string;
+};
+
 export function SetupFlow({
   repos, githubRepos, runtimes, localTools, workerNodes, githubAppConfigured,
 }: {
@@ -211,6 +217,7 @@ function WorkerStep({ workerNodes, repos, githubAppConfigured }: { workerNodes: 
 function GitHubStep() {
   const [auth, setAuth] = useState<AuthState>({});
   const [syncResult, setSyncResult] = useState("");
+  const [verify, setVerify] = useState<VerifyState>({});
   const [busy, setBusy] = useState(false);
   const autoSynced = useRef(false);
 
@@ -228,6 +235,8 @@ function GitHubStep() {
 
   async function startLogin() {
     setBusy(true);
+    setSyncResult("");
+    setVerify({});
     const loginWindow = window.open("", "_blank");
     let openedLoginUrl = false;
     try {
@@ -260,6 +269,17 @@ function GitHubStep() {
     if (login.done) await checkStatus();
   }
 
+  async function verifyGitHub() {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/github/verify", { cache: "no-store" });
+      const result = await readJson(res);
+      setVerify(result);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function syncRepos() {
     setBusy(true);
     try {
@@ -274,6 +294,8 @@ function GitHubStep() {
     setBusy(true);
     try {
       await fetch("/api/github/auth", { method: "DELETE" });
+      setSyncResult("GitHub disconnected.");
+      setVerify({});
       await checkStatus();
     } finally { setBusy(false); }
   }
@@ -290,6 +312,14 @@ function GitHubStep() {
     }
     initialize();
   }, []);
+
+  useEffect(() => {
+    if (!auth.pending) return;
+    const timer = window.setInterval(() => {
+      refreshLogin();
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [auth.pending]);
 
   return (
     <div className="ag-card p-6 space-y-5">
@@ -309,10 +339,11 @@ function GitHubStep() {
         <>
           {auth.setupRequired && <GitHubSsoSetupNotice auth={auth} />}
           <div className="flex flex-wrap gap-2">
-            <button className="ag-btn ag-btn-primary" disabled={busy || auth.setupRequired} onClick={startLogin}>
+            <button className="ag-btn ag-btn-primary" disabled={busy} onClick={startLogin}>
               {busy ? "Starting..." : "Sign in with GitHub in browser"}
             </button>
             <button className="ag-btn ag-btn-secondary" disabled={busy} onClick={checkStatus}>Check again</button>
+            <button className="ag-btn ag-btn-secondary" disabled={busy} onClick={verifyGitHub}>Verify GitHub flow</button>
           </div>
           {auth.error && !auth.setupRequired && (
             <div className="rounded-lg border border-[color-mix(in_srgb,var(--ag-coral)_35%,var(--ag-line))] bg-[color-mix(in_srgb,var(--ag-coral)_8%,var(--ag-surface))] px-4 py-3 text-sm text-[var(--ag-heading)]">
@@ -330,6 +361,7 @@ function GitHubStep() {
             <a className="ag-btn ag-btn-secondary" href={auth.url ?? "https://github.com/login/device"} target="_blank" rel="noreferrer">Open GitHub</a>
             <button className="ag-btn ag-btn-primary" onClick={refreshLogin}>I approved it</button>
           </div>
+          {auth.pending && <p className="mt-3 text-xs text-[var(--ag-muted)]">Waiting for GitHub approval. This page checks automatically.</p>}
         </div>
       )}
 
@@ -341,6 +373,7 @@ function GitHubStep() {
           </div>
           <div className="flex gap-2">
             <button className="ag-btn ag-btn-secondary" disabled={busy} onClick={disconnectGitHub}>Disconnect</button>
+            <button className="ag-btn ag-btn-secondary" disabled={busy} onClick={verifyGitHub}>Verify</button>
             <button className="ag-btn ag-btn-primary" disabled={busy} onClick={syncRepos}>
               {busy ? "Syncing..." : "Sync"}
             </button>
@@ -349,6 +382,24 @@ function GitHubStep() {
       )}
 
       {syncResult && <div className="text-sm text-[var(--ag-green)]">{syncResult}</div>}
+      {verify.checks && (
+        <div className="rounded-lg border border-[var(--ag-line)] bg-[var(--ag-surface)] p-4">
+          <div className={`mb-3 text-sm font-semibold ${verify.ok ? "text-[var(--ag-green)]" : "text-[var(--ag-amber)]"}`}>
+            {verify.ok ? "GitHub flow verified" : "GitHub flow needs attention"}
+          </div>
+          <div className="space-y-2">
+            {verify.checks.map((check) => (
+              <div key={check.id} className="flex items-start justify-between gap-3 rounded-md border border-[var(--ag-border)] bg-[var(--ag-bg)] p-3 text-xs">
+                <div>
+                  <div className="font-medium text-[var(--ag-heading)]">{check.label}</div>
+                  <div className="mt-1 text-[var(--ag-muted)]">{check.detail}</div>
+                </div>
+                <span className={`ag-badge ${check.ok ? "ag-badge-success" : "ag-badge-waiting"}`}>{check.ok ? "OK" : "Check"}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
