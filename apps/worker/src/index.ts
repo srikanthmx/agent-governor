@@ -176,6 +176,7 @@ async function executeClaim(claimId: number, claimedTask: ClaimedTask) {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    mirroredTask ??= readMirroredTask(taskId);
     await postJson(`/api/nodes/claims/${claimId}`, {
       status: "failed",
       result: {
@@ -194,6 +195,18 @@ async function executeClaim(claimId: number, claimedTask: ClaimedTask) {
       metadata: { elapsedMs: Date.now() - startedAt }
     }, state.token);
     console.error(`TASK-${taskId} failed: ${message}`);
+  }
+}
+
+function readMirroredTask(taskId: number) {
+  const db = openDb(config.app.paths.database);
+  try {
+    migrate(db);
+    return db
+      .prepare("SELECT branch_name, worktree_path, pr_url, status, current_stage FROM tasks WHERE id = ?")
+      .get(taskId) as { branch_name: string | null; worktree_path: string | null; pr_url: string | null; status: string; current_stage: string | null } | null;
+  } finally {
+    db.close();
   }
 }
 
@@ -421,7 +434,19 @@ function workerConfig() {
       agents: loaded.agents.agents.map((agent) => ({
         ...agent,
         enabled: agent.id === "shell",
-        configuredEnabled: agent.id === "shell"
+        configuredEnabled: agent.id === "shell",
+        command: agent.id === "shell" ? "sh" : agent.command,
+        args: agent.id === "shell"
+          ? [
+              "-lc",
+              [
+                "cat \"$AGENT_GOVERNOR_PROMPT_FILE\";",
+                "if grep -q 'Stage: implementation' \"$AGENT_GOVERNOR_PROMPT_FILE\"; then",
+                "  printf 'smoke implementation completed at %s\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" > agent-governor-smoke-output.txt;",
+                "fi"
+              ].join(" ")
+            ]
+          : agent.args
       })),
       roles: Object.fromEntries(
         Object.entries(loaded.agents.roles).map(([role, route]) => [

@@ -25,13 +25,14 @@ async function updateClaim(request: Request, { params }: { params: { claimId: st
       status: body.status,
       result: body.result
     });
-    if (body.status === "completed") {
+    if (body.status === "completed" || body.status === "failed") {
       const taskStatus = typeof body.result?.taskStatus === "string" ? body.result.taskStatus : null;
       const currentStage = typeof body.result?.currentStage === "string" ? body.result.currentStage : null;
       const prUrl = typeof body.result?.prUrl === "string" ? body.result.prUrl : null;
       const branchName = typeof body.result?.branchName === "string" ? body.result.branchName : null;
       const worktreePath = typeof body.result?.worktreePath === "string" ? body.result.worktreePath : null;
-      if (taskStatus || currentStage || prUrl || branchName || worktreePath) {
+      const failedStatus = body.status === "failed" ? "FAILED" : null;
+      if (taskStatus || currentStage || prUrl || branchName || worktreePath || failedStatus) {
         context.db.prepare(
           `UPDATE tasks
            SET status = COALESCE(?, status),
@@ -41,7 +42,7 @@ async function updateClaim(request: Request, { params }: { params: { claimId: st
                worktree_path = COALESCE(?, worktree_path),
                updated_at = ?
            WHERE id = ?`
-        ).run(taskStatus, currentStage, prUrl, branchName, worktreePath, new Date().toISOString(), claim.task_id);
+        ).run(taskStatus ?? failedStatus, currentStage, prUrl, branchName, worktreePath, new Date().toISOString(), claim.task_id);
       }
     }
     context.registry.recordEvent({
